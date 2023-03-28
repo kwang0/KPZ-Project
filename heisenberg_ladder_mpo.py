@@ -5,6 +5,7 @@ from tenpy.networks.mps import MPSEnvironment
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
+import argparse
 
 # Purification to finite temperature of beta_max (Schollwock 7.2)
 def imag_tebd(L=128, beta_max=3., dt=0.05, chi_max=256, order=2, bc="finite"):
@@ -62,7 +63,9 @@ def real_mpo(psi, model, N_steps = 1000, dt = 0.1, chi_max = 256, beta = 3):
         corrs.append(np.abs(env.expectation_value('Sz', sites=[L//2])[0]))
 
         # beta = 3
-        with h5py.File("tests/mpo_L{}_chi{}_beta{}_dt{}.h5".format(L, chi_max, beta, dt),'w') as F:
+        # Writing to data file. Beta and dt are inserted in the filename to one sig fig to avoid decimal
+        # points in scientific notation.
+        with h5py.File("data/mpo_L{}_chi{}_beta{:.0e}_dt{:.0e}.h5".format(L, chi_max, beta, dt),'w') as F:
             F['times'] = times
             F['corrs'] = corrs
 
@@ -72,15 +75,26 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
 
-    beta = 1
-    psi, model = imag_tebd(beta_max=beta, L=128)
-    times, corrs = real_mpo(psi, model, chi_max=256, N_steps=1000, dt=0.1, beta=beta)
+    # Pass in arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-l", "--length", type=int, help = "Length of chain")
+    parser.add_argument("-b", "--beta", type=float, help="Inverse temperature: beta")
+    parser.add_argument("-c", "--chi", type=int, help="Maximum bond dimension: chi_max")
+    parser.add_argument("-t", "--dt", type=float, help="Real-time evolution timestep: dt")
+    args = parser.parse_args()
+    L = args.length
+    beta = args.beta
+    chi_max = args.chi
+    dt = args.dt
+
+    psi, model = imag_tebd(beta_max=beta, L=L)
+    times, corrs = real_mpo(psi, model, chi_max=chi_max, N_steps=1000, dt=dt, beta=beta)
 
 
-    plt.loglog(times, corrs)
-    plt.xlabel(r'$t$')
-    plt.ylabel(r'$|C(T,x=0,t)|$')
-    plt.show()
+    # plt.loglog(times, corrs)
+    # plt.xlabel(r'$t$')
+    # plt.ylabel(r'$|C(T,x=0,t)|$')
+    # plt.show()
 
 
 

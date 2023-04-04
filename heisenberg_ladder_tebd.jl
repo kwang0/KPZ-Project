@@ -12,12 +12,12 @@ function ITensors.op(::OpName"expτSS", ::SiteType"S=1/2", s1::Index, s2::Index;
 end
 
 function ITensors.op(::OpName"expiSS", ::SiteType"S=1/2", s1::Index, s2::Index; t)
-    h =
-      1 / 2 * op("S+", s1) * op("S-", s2) +
-      1 / 2 * op("S-", s1) * op("S+", s2) +
-      op("Sz", s1) * op("Sz", s2)
-    return exp(-im * t * h)
-  end
+  h =
+    1 / 2 * op("S+", s1) * op("S-", s2) +
+    1 / 2 * op("S-", s1) * op("S+", s2) +
+    op("Sz", s1) * op("Sz", s2)
+  return exp(-im * t * h)
+end
 
 function main(; L=128, cutoff=1E-8, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100, maxdim=32)
   s = siteinds("S=1/2", L; conserve_qns=true)

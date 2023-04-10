@@ -24,6 +24,16 @@ function heisenberg(L, J2)
   return os
 end
 
+# function heisenberg(L)
+#   os = OpSum()
+#   for j in 1:(L - 1)
+#     os += "Sz", 2*j - 1, "Sz", 2*j + 1
+#     os += 0.5, "S+", 2*j - 1, "S-", 2*j + 1
+#     os += 0.5, "S-", 2*j - 1, "S+", 2*j + 1
+#   end
+#   return os
+# end
+
 function inf_temp_mps(sites)
   num_sites = length(sites)
   if (num_sites % 2 != 0)
@@ -75,7 +85,7 @@ function inf_temp_mps(sites)
   end
 end
 
-function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
+function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
   s = siteinds("S=1/2", 4 * L; conserve_qns=true)
   H = MPO(heisenberg(L, J2), s)
 
@@ -97,7 +107,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   end
 
   c = div(L, 2) # center site
-  Sz_center = op("Sz",s[2*c-1])
+  Sz_center = op("Sz",s[4*c-3])
   ψ2 = apply(Sz_center, ψ; cutoff, maxdim)
   normalize!(ψ2)
 

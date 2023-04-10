@@ -1,22 +1,32 @@
+using MKL
 using ITensors
 using ITensorTDVP
 using Printf
 using PyPlot
 using HDF5
+using LinearAlgebra
 
-function heisenberg(L)
+function heisenberg(L, J2)
   os = OpSum()
-  for j in 1:(L - 1)
-    os += "Sz", 2*j - 1, "Sz", 2*j + 1
-    os += 0.5, "S+", 2*j - 1, "S-", 2*j + 1
-    os += 0.5, "S-", 2*j - 1, "S+", 2*j + 1
+  for j in 1:2:(4*L - 3)
+    # Adding J1 = 1 terms in ladder
+    os += "Sz", j, "Sz", j + 4
+    os += 0.5, "S+", j, "S-", j + 4
+    os += 0.5, "S-", j, "S+", j + 4
+
+    # Adding J2 rung terms in ladder
+    if (j % 4 == 1)
+      os += J2, "Sz", j, "Sz", j + 2
+      os += 0.5*J2, "S+", j, "S-", j + 2
+      os += 0.5*J2, "S-", j, "S+", j + 2
+    end
   end
   return os
 end
 
 function inf_temp_mps(sites)
   num_sites = length(sites)
-  if(num_sites %2 !=0)
+  if (num_sites % 2 != 0)
     throw(DomainError(num_sites,"Expects even number of sites for ancilla-physical singlets."))
   else
     ψ = MPS(sites)
@@ -35,7 +45,7 @@ function inf_temp_mps(sites)
         ψ[j] = replacetags(U, "u", "l=$(j)")
         ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
 
-      elseif(j == num_sites-1)
+      elseif (j == num_sites-1)
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
         A = ITensor(ComplexF64, s1, s2, leftlink)
 
@@ -45,6 +55,7 @@ function inf_temp_mps(sites)
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-15)
         ψ[j] = replacetags(U, "u", "l=$(j)")
         ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
+        
       else
         rightlink = commonind(ψ[j+1], ψ[j+2])
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
@@ -64,11 +75,11 @@ function inf_temp_mps(sites)
   end
 end
 
-function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, nsweeps=10)
-  s = siteinds("S=1/2", 2 * L; conserve_qns=true)
-  H = MPO(heisenberg(L), s)
+function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
+  s = siteinds("S=1/2", 4 * L; conserve_qns=true)
+  H = MPO(heisenberg(L, J2), s)
 
-  # Initial state is infinite-temperature mixed state
+  # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
   ψ = inf_temp_mps(s)
 
   # Cool down to inverse temperature 
@@ -76,8 +87,8 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     @printf("β = %.2f\n", 2*β)
     flush(stdout)
     ψ = tdvp(H, -δτ, ψ;
-      nsweeps=nsweeps,
-      reverse_step=false,
+      nsweeps=1,
+      reverse_step=true,
       normalize=true,
       maxdim=maxdim,
       cutoff=cutoff,
@@ -102,7 +113,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_nsweeps$nsweeps.h5","w")
+    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_J2$(J2).h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
@@ -110,16 +121,16 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     t≈ttotal && break
 
     ψ = tdvp(H, -im * δt, ψ;
-      nsweeps=nsweeps,
-      reverse_step=false,
+      nsweeps=1,
+      reverse_step=true,
       normalize=true,
       maxdim=maxdim,
       cutoff=cutoff,
       outputlevel=1
     )
     ψ2 = tdvp(H, -im * δt, ψ2;
-      nsweeps=nsweeps,
-      reverse_step=false,
+      nsweeps=1,
+      reverse_step=true,
       normalize=true,
       maxdim=maxdim,
       cutoff=cutoff,
@@ -135,10 +146,14 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   return times, corrs
 end
 
+ITensors.Strided.set_num_threads(1)
+BLAS.set_num_threads(40)
+# ITensors.enable_threaded_blocksparse(true)
+
 L = parse(Int64, ARGS[1])
 maxdim = parse(Int64, ARGS[2])
 β_max = parse(Float64, ARGS[3])
 δt = parse(Float64, ARGS[4])
-nsweeps = parse(Int64, ARGS[5])
+J2 = parse(Float64, ARGS[5])
 
-main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, nsweeps=nsweeps)
+main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2)

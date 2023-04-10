@@ -5,14 +5,14 @@ using HDF5
 
 # Plotting Maxime's data
 function plot_csv(f::String)
-    df=DataFrame(CSV.File(f, delim=" ",header =0,skipto=6))
+    df=DataFrame(CSV.File(f, delim=" ", header=0, skipto=6))
     times = df.Column1
     corrs = 4 * abs.(df.Column2 + df.Column3*im)
     plt.loglog(times, corrs)
 end
 
 # Plot my own data
-function plot_hdf(f::String, norm::Integer)
+function plot_hdf(f::String, norm::Integer=1)
     F = h5open(f,"r")
     times = read(F, "times")
     corrs = norm * abs.(read(F, "corrs"))

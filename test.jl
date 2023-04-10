@@ -1,32 +1,39 @@
+using BenchmarkTools
 using ITensors
+using LinearAlgebra
 
-function heisenberg(N)
-  os = OpSum()
-  for j in 1:(N - 1)
-    os += "Sz", j, "Sz", j + 1
-    os += 0.5, "S+", j, "S-", j + 1
-    os += 0.5, "S-", j, "S+", j + 1
+function main(; d = 20, order = 4)
+  BLAS.set_num_threads(1)
+  ITensors.Strided.set_num_threads(1)
+
+  println("#################################################")
+  println("# order = ", order)
+  println("# d = ", d)
+  println("#################################################")
+  println()
+
+  i(n) = Index(QN(0) => d, QN(1) => d; tags = "i$n")
+  is = IndexSet(i, order ÷ 2)
+  A = randomITensor(is'..., dag(is)...)
+  B = randomITensor(is'..., dag(is)...)
+
+  ITensors.disable_threaded_blocksparse()
+
+  println("Serial contract:")
+  @disable_warn_order begin
+    C_contract = @btime $A' * $B samples = 5
   end
-  return os
+  println()
+
+  println("Threaded contract:")
+  @disable_warn_order begin
+    ITensors.enable_threaded_blocksparse(true)
+    C_threaded_contract = @btime $A' * $B samples = 5
+    ITensors.enable_threaded_blocksparse(false)
+  end
+  println()
+  @show C_contract ≈ C_threaded_contract
+  return nothing
 end
 
-function main(N; nsteps, order)
-  ℋ = heisenberg(N)
-  s = siteinds("S=1/2", N)
-  ψ₀ = MPS(s, n -> isodd(n) ? "↑" : "↓")
-  t = 1.0
-  𝒰 = exp(im * t * ℋ; alg=Trotter{order}(nsteps))
-  U = Prod{ITensor}(𝒰, s)
-  H = MPO(ℋ, s)
-  𝒰ʳᵉᶠ = exp(im * t * ℋ)
-  Uʳᵉᶠ = MPO(𝒰ʳᵉᶠ, s)
-  Uʳᵉᶠψ₀ = replaceprime(Uʳᵉᶠ * prod(ψ₀), 1 => 0)
-  return norm(prod(U(ψ₀)) - Uʳᵉᶠψ₀)
-end
-
-@show main(4; nsteps=10, order=1)
-@show main(4; nsteps=10, order=2)
-@show main(4; nsteps=10, order=4)
-@show main(4; nsteps=100, order=1)
-@show main(4; nsteps=100, order=2)
-@show main(4; nsteps=100, order=4)
+main(d = 20, order = 4)

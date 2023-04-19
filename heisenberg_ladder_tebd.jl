@@ -1,15 +1,9 @@
+using MKL
+using LinearAlgebra
 using ITensors
 using Printf
 using PyPlot
 using HDF5
-
-function ITensors.op(::OpName"expτSS", ::SiteType"S=1/2", s1::Index, s2::Index; τ)
-  h =
-    1 / 2 * op("S+", s1) * op("S-", s2) +
-    1 / 2 * op("S-", s1) * op("S+", s2) +
-    op("Sz", s1) * op("Sz", s2)
-  return exp(τ * h)
-end
 
 function ITensors.op(::OpName"expiSS", ::SiteType"S=1/2", s1::Index, s2::Index; t)
   h =
@@ -19,13 +13,23 @@ function ITensors.op(::OpName"expiSS", ::SiteType"S=1/2", s1::Index, s2::Index; 
   return exp(-im * t * h)
 end
 
-function main(; L=128, cutoff=1E-8, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100, maxdim=32)
+function fourth_order_trotter_gates(L, sites, δt)
+  α = 1 / (4 - 4^(1/3))
+
+  A1 = ops([("expiSS", (n, n + 1), (t=α*δt/2,)) for n in 1:2:(L - 1)], sites)
+  B1 = ops([("expiSS", (n, n + 1), (t=α*δt,)) for n in 2:2:(L - 2)], sites)
+  A2 = ops([("expiSS", (n, n + 1), (t=α*δt,)) for n in 1:2:(L - 1)], sites)
+  A3 = ops([("expiSS", (n, n + 1), (t=(1-3*α)*δt/2,)) for n in 1:2:(L - 1)], sites)
+  B2 = ops([("expiSS", (n, n + 1), (t=(1-4*α)*δt,)) for n in 2:2:(L - 2)], sites)
+
+  return vcat(A1,B1,A2,B1,A3,B2,A3,B1,A2,B1,A1)
+end
+
+function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100, maxdim=32)
   s = siteinds("S=1/2", L; conserve_qns=true)
 
-  # Make purification gates (1,2),(2,3),(3,4),...
-  im_gates = ops([("expτSS", (n, n + 1), (τ=-δτ / 2,)) for n in 1:(L - 1)], s)
-  # Include gates in reverse order to complete Trotter formula
-  append!(im_gates, reverse(im_gates))
+  # Make purification gates
+  im_gates = fourth_order_trotter_gates(L, s, -im * δτ)
 
   # Initial state is infinite-temperature mixed state
   rho = MPO(s, "Id") ./ √2
@@ -39,10 +43,8 @@ function main(; L=128, cutoff=1E-8, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100
     normalize!(rho)
   end
 
-  # Make real gates
-  real_gates = ops([("expiSS", (n, n + 1), (t=δt / 2,)) for n in 1:(L - 1)], s)
-  # Include gates in reverse order to complete Trotter formula
-  append!(real_gates, reverse(real_gates))
+  # Make real-time evolution gates
+  real_gates = fourth_order_trotter_gates(L, s, δt)
 
   c = div(L, 2) # center site
   Sz_center = op("Sz",s[c])
@@ -61,7 +63,7 @@ function main(; L=128, cutoff=1E-8, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/mpo_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$δt.h5","w")
+    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_order4.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
@@ -74,13 +76,17 @@ function main(; L=128, cutoff=1E-8, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100
     normalize!(rho2)
   end
 
-  plt.loglog(times, abs.(corrs))
-  plt.xlabel("t")
-  plt.ylabel("|C(T,x=0,t)|")
-  plt.show()
+  # plt.loglog(times, abs.(corrs))
+  # plt.xlabel("t")
+  # plt.ylabel("|C(T,x=0,t)|")
+  # plt.show()
 
   return times, corrs
 end
+
+ITensors.Strided.set_num_threads(1)
+BLAS.set_num_threads(40)
+# ITensors.enable_threaded_blocksparse(true)
 
 L = parse(Int64, ARGS[1])
 maxdim = parse(Int64, ARGS[2])

@@ -148,10 +148,10 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     )
   end
 
-  plt.loglog(times, abs.(corrs))
-  plt.xlabel("t")
-  plt.ylabel("|C(T,x=0,t)|")
-  plt.show()
+  # plt.loglog(times, abs.(corrs))
+  # plt.xlabel("t")
+  # plt.ylabel("|C(T,x=0,t)|")
+  # plt.show()
 
   return times, corrs
 end

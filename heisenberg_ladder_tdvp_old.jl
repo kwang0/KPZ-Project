@@ -6,34 +6,22 @@ using PyPlot
 using HDF5
 using LinearAlgebra
 
-function heisenberg(L, J2)
+function heisenberg(L, real_evolution)
   os = OpSum()
+  for j in 1:(L - 1)
+    os += "Sz", 2*j - 1, "Sz", 2*j + 1
+    os += 0.5, "S+", 2*j - 1, "S-", 2*j + 1
+    os += 0.5, "S-", 2*j - 1, "S+", 2*j + 1
 
-  # Adding J1 = 1 terms in ladder
-  for j in 1:2:(4*L - 5)
-    os += "Sz", j, "Sz", j + 4
-    os += 0.5, "S+", j, "S-", j + 4
-    os += 0.5, "S-", j, "S+", j + 4
-  end
-
-  # Adding J2 rung terms in ladder
-  for j in 1:4:(4*L - 3)
-    os += J2, "Sz", j, "Sz", j + 2
-    os += 0.5*J2, "S+", j, "S-", j + 2
-    os += 0.5*J2, "S-", j, "S+", j + 2
+    if (real_evolution)
+        # Apply disentangler exp(iHt) on ancilla sites
+        os += -1, "Sz", 2*j, "Sz", 2*j + 2
+        os += -0.5, "S+", 2*j, "S-", 2*j + 2
+        os += -0.5, "S-", 2*j, "S+", 2*j + 2
+    end
   end
   return os
 end
-
-# function heisenberg(L)
-#   os = OpSum()
-#   for j in 1:(L - 1)
-#     os += "Sz", 2*j - 1, "Sz", 2*j + 1
-#     os += 0.5, "S+", 2*j - 1, "S-", 2*j + 1
-#     os += 0.5, "S-", 2*j - 1, "S+", 2*j + 1
-#   end
-#   return os
-# end
 
 function inf_temp_mps(sites)
   num_sites = length(sites)
@@ -87,8 +75,9 @@ function inf_temp_mps(sites)
 end
 
 function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
-  s = siteinds("S=1/2", 4 * L; conserve_qns=true)
-  H = MPO(heisenberg(L, J2), s)
+  s = siteinds("S=1/2", 2 * L; conserve_qns=true)
+  H_imag = MPO(heisenberg(L, false), s)
+  H_real = MPO(heisenberg(L, true), s)
 
   # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
   ψ = inf_temp_mps(s)
@@ -97,7 +86,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   for β in δτ:δτ:β_max/2
     @printf("β = %.2f\n", 2*β)
     flush(stdout)
-    ψ = tdvp(H, -δτ, ψ;
+    ψ = tdvp(H_imag, -δτ, ψ;
       nsweeps=1,
       reverse_step=true,
       normalize=true,
@@ -108,7 +97,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   end
 
   c = div(L, 2) # center site
-  Sz_center = op("Sz",s[4*c-3])
+  Sz_center = op("Sz",s[2*c-1])
   ψ2 = apply(Sz_center, ψ; cutoff, maxdim)
   normalize!(ψ2)
 
@@ -124,14 +113,14 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_J2$(J2).h5","w")
+    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_disentangled.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
 
     t≈ttotal && break
 
-    ψ = tdvp(H, -im * δt, ψ;
+    ψ = tdvp(H_real, -im * δt, ψ;
       nsweeps=1,
       reverse_step=true,
       normalize=true,
@@ -139,7 +128,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
       cutoff=cutoff,
       outputlevel=1
     )
-    ψ2 = tdvp(H, -im * δt, ψ2;
+    ψ2 = tdvp(H_real, -im * δt, ψ2;
       nsweeps=1,
       reverse_step=true,
       normalize=true,
@@ -149,10 +138,10 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     )
   end
 
-  # plt.loglog(times, abs.(corrs))
-  # plt.xlabel("t")
-  # plt.ylabel("|C(T,x=0,t)|")
-  # plt.show()
+  plt.loglog(times, abs.(corrs))
+  plt.xlabel("t")
+  plt.ylabel("|C(T,x=0,t)|")
+  plt.show()
 
   return times, corrs
 end
@@ -165,6 +154,6 @@ L = parse(Int64, ARGS[1])
 maxdim = parse(Int64, ARGS[2])
 β_max = parse(Float64, ARGS[3])
 δt = parse(Float64, ARGS[4])
-J2 = parse(Float64, ARGS[5])
+# J2 = parse(Float64, ARGS[5])
 
-main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2)
+main(L=L, maxdim=maxdim, β_max=β_max, δt=δt)

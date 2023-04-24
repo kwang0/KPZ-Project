@@ -5,6 +5,57 @@ using Printf
 using PyPlot
 using HDF5
 
+function inf_temp_mps(sites)
+  num_sites = length(sites)
+  if (num_sites % 2 != 0)
+    throw(DomainError(num_sites,"Expects even number of sites for ancilla-physical singlets."))
+  else
+    ψ = MPS(sites)
+    for j = 1:2:num_sites-1
+      s1 = sites[j]
+      s2 = sites[j+1]
+          
+      if(j == 1)
+        rightlink = commonind(ψ[j+1],ψ[j+2])
+        A = ITensor(ComplexF64, s1, s2, rightlink)
+
+        A[s1=>1, s2=>2, rightlink => 1] = 1/sqrt(2)
+        A[s1=>2, s2=>1, rightlink => 1] = -1/sqrt(2)
+
+        U,S,V = svd(A, (s1), cutoff=1e-16)
+        ψ[j] = replacetags(U, "u", "l=$(j)")
+        ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
+
+      elseif (j == num_sites-1)
+        leftlink = dag(commonind(ψ[j-1], ψ[j]))
+        A = ITensor(ComplexF64, s1, s2, leftlink)
+
+        A[s1 => 1,s2 => 2, leftlink => 1] = 1/sqrt(2)
+        A[s1 => 2,s2 => 1, leftlink => 1] = -1/sqrt(2)
+
+        U,S,V = svd(A, (s1, leftlink), cutoff=1e-16)
+        ψ[j] = replacetags(U, "u", "l=$(j)")
+        ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
+        
+      else
+        rightlink = commonind(ψ[j+1], ψ[j+2])
+        leftlink = dag(commonind(ψ[j-1], ψ[j]))
+    
+        A = ITensor(ComplexF64, s1, s2, rightlink, leftlink)
+
+        A[s1 => 1,s2 => 2, rightlink=>1, leftlink =>1] = 1/sqrt(2)
+        A[s1 => 2,s2 => 1, rightlink=>1, leftlink =>1] = -1/sqrt(2)
+
+        U,S,V = svd(A, (s1, leftlink), cutoff=1e-16)
+        ψ[j] = replacetags(U, "u", "l=$(j)")
+        ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
+      end
+    end
+
+    return ψ
+  end
+end
+
 function ITensors.op(::OpName"expiSS", ::SiteType"S=1/2", s1::Index, s2::Index; t)
   h =
     1 / 2 * op("S+", s1) * op("S-", s2) +
@@ -13,67 +64,82 @@ function ITensors.op(::OpName"expiSS", ::SiteType"S=1/2", s1::Index, s2::Index; 
   return exp(-im * t * h)
 end
 
-function fourth_order_trotter_gates(L, sites, δt)
+function fourth_order_trotter_gates(L, sites, δt, real_evolution)
   α = 1 / (4 - 4^(1/3))
 
-  A1 = ops([("expiSS", (n, n + 1), (t=α*δt/2,)) for n in 1:2:(L - 1)], sites)
-  B1 = ops([("expiSS", (n, n + 1), (t=α*δt,)) for n in 2:2:(L - 2)], sites)
-  A2 = ops([("expiSS", (n, n + 1), (t=α*δt,)) for n in 1:2:(L - 1)], sites)
-  A3 = ops([("expiSS", (n, n + 1), (t=(1-3*α)*δt/2,)) for n in 1:2:(L - 1)], sites)
-  B2 = ops([("expiSS", (n, n + 1), (t=(1-4*α)*δt,)) for n in 2:2:(L - 2)], sites)
+  A1 = ops([("expiSS", (2*n - 1, 2*n + 1), (t=α*δt/2,)) for n in 1:2:(L - 1)], sites)
+  B1 = ops([("expiSS", (2*n - 1, 2*n + 1), (t=α*δt,)) for n in 2:2:(L - 2)], sites)
+  A2 = ops([("expiSS", (2*n - 1, 2*n + 1), (t=α*δt,)) for n in 1:2:(L - 1)], sites)
+  A3 = ops([("expiSS", (2*n - 1, 2*n + 1), (t=(1-3*α)*δt/2,)) for n in 1:2:(L - 1)], sites)
+  B2 = ops([("expiSS", (2*n - 1, 2*n + 1), (t=(1-4*α)*δt,)) for n in 2:2:(L - 2)], sites)
+
+  if (real_evolution)
+    # Apply disentangler exp(iHt) on ancilla sites
+    aA1 = ops([("expiSS", (2*n, 2*n + 2), (t=-α*δt/2,)) for n in 1:2:(L - 1)], sites)
+    aB1 = ops([("expiSS", (2*n, 2*n + 2), (t=-α*δt,)) for n in 2:2:(L - 2)], sites)
+    aA2 = ops([("expiSS", (2*n, 2*n + 2), (t=-α*δt,)) for n in 1:2:(L - 1)], sites)
+    aA3 = ops([("expiSS", (2*n, 2*n + 2), (t=-(1-3*α)*δt/2,)) for n in 1:2:(L - 1)], sites)
+    aB2 = ops([("expiSS", (2*n, 2*n + 2), (t=-(1-4*α)*δt,)) for n in 2:2:(L - 2)], sites)
+
+    A1 = vcat(A1,aA1)
+    B1 = vcat(B1,aB1)
+    A2 = vcat(A2,aA2)
+    A3 = vcat(A3,aA3)
+    B2 = vcat(B2,aB2)
+  end
 
   return vcat(A1,B1,A2,B1,A3,B2,A3,B1,A2,B1,A1)
 end
 
 function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100, maxdim=32)
-  s = siteinds("S=1/2", L; conserve_qns=true)
+  s = siteinds("S=1/2", 2 * L; conserve_qns=true)
 
   # Make purification gates
-  im_gates = fourth_order_trotter_gates(L, s, -im * δτ)
+  im_gates = fourth_order_trotter_gates(L, s, -im * δτ, false)
 
   # Initial state is infinite-temperature mixed state
-  rho = MPO(s, "Id") ./ √2
+  ψ = inf_temp_mps(s)
 
   # Do the time evolution by applying the gates
   # for Nsteps steps
-  for β in 0:δτ:beta_max/2
+  for β in δτ:δτ:beta_max/2
     @printf("β = %.2f\n", 2*β)
     flush(stdout)
-    rho = apply(im_gates, rho; cutoff, maxdim)
-    normalize!(rho)
+    ψ = apply(im_gates, ψ; cutoff, maxdim)
+    normalize!(ψ)
   end
 
   # Make real-time evolution gates
-  real_gates = fourth_order_trotter_gates(L, s, δt)
+  real_gates = fourth_order_trotter_gates(L, s, δt, true)
 
   c = div(L, 2) # center site
-  Sz_center = op("Sz",s[c])
-  rho2 = apply(Sz_center, rho; cutoff, maxdim)
-  normalize!(rho2)
+  Sz_center = op("Sz",s[2*c-1])
+  ψ2 = apply(Sz_center, ψ; cutoff, maxdim)
+  normalize!(ψ2)
 
   times = Float64[]
   corrs = ComplexF64[]
   for t in 0.0:δt:ttotal
-    rho3 = apply(Sz_center, rho2; cutoff, maxdim)
-    normalize!(rho3)
-    corr = inner(rho, rho3)
+    ψ3 = apply(Sz_center, ψ2; cutoff, maxdim)
+    normalize!(ψ3)
+    corr = inner(ψ, ψ3)
     println("$t $corr")
     flush(stdout)
     push!(times, t)
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_order4.h5","w")
+    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_disentangled.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
 
     t≈ttotal && break
 
-    rho = apply(real_gates, rho; cutoff, maxdim)
-    normalize!(rho)
-    rho2 = apply(real_gates, rho2; cutoff, maxdim)
-    normalize!(rho2)
+    ψ = apply(real_gates, ψ; cutoff, maxdim)
+    normalize!(ψ)
+    ψ2 = apply(real_gates, ψ2; cutoff, maxdim)
+    normalize!(ψ2)
   end
 
   # plt.loglog(times, abs.(corrs))

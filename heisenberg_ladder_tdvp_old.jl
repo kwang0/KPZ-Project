@@ -92,8 +92,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
       normalize=true,
       maxdim=maxdim,
       cutoff=cutoff,
-      outputlevel=1,
-      order=4
+      outputlevel=1
     )
   end
 
@@ -114,7 +113,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_disentangled_order4.h5","w")
+    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_disentangled.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
@@ -127,8 +126,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
       normalize=true,
       maxdim=maxdim,
       cutoff=cutoff,
-      outputlevel=1,
-      order=4
+      outputlevel=1
     )
     ψ2 = tdvp(H_real, -im * δt, ψ2;
       nsweeps=1,
@@ -136,8 +134,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
       normalize=true,
       maxdim=maxdim,
       cutoff=cutoff,
-      outputlevel=1,
-      order=4
+      outputlevel=1
     )
   end
 

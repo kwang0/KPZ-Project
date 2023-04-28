@@ -104,7 +104,7 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
   for β in δτ:δτ:beta_max/2
     @printf("β = %.2f\n", 2*β)
     flush(stdout)
-    ψ = apply(im_gates, ψ; cutoff, maxdim)
+    ψ = apply(im_gates, ψ; alg="naive", cutoff, maxdim)
     normalize!(ψ)
   end
 
@@ -128,16 +128,16 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_disentangled.h5","w")
+    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_naiveapply.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
 
     t≈ttotal && break
 
-    ψ = apply(real_gates, ψ; cutoff, maxdim)
+    ψ = apply(real_gates, ψ; alg="naive", cutoff, maxdim)
     normalize!(ψ)
-    ψ2 = apply(real_gates, ψ2; cutoff, maxdim)
+    ψ2 = apply(real_gates, ψ2; alg="naive", cutoff, maxdim)
     normalize!(ψ2)
   end
 

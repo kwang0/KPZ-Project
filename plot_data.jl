@@ -8,7 +8,8 @@ function plot_csv(f::String)
     df=DataFrame(CSV.File(f, delim=" ", header=0, skipto=6))
     times = df.Column1
     corrs = 4 * abs.(df.Column2 + df.Column3*im)
-    plt.loglog(times, corrs)
+    plt.loglog(times, corrs, label=f)
+    plt.legend()
 end
 
 # Plot my own data
@@ -16,6 +17,7 @@ function plot_hdf(f::String, norm::Integer=1)
     F = h5open(f,"r")
     times = read(F, "times")
     corrs = norm * abs.(read(F, "corrs"))
-    plt.loglog(times, corrs)
+    plt.loglog(times, corrs, label=f)
+    plt.legend()
     close(F)
 end

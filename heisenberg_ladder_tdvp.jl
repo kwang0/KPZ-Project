@@ -52,9 +52,9 @@ function inf_temp_mps(sites)
         A[s1=>1, s2=>2, rightlink => 1] = 1/sqrt(2)
         A[s1=>2, s2=>1, rightlink => 1] = -1/sqrt(2)
 
-        U,S,V = svd(A, (s1), cutoff=1e-15)
-        ψ[j] = replacetags(U, "u", "l=$(j)")
-        ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
+        U,S,V = svd(A, (s1), cutoff=1e-16, lefttags="Link,l=$(j)")
+        ψ[j] = U
+        ψ[j+1] = S*V
 
       elseif (j == num_sites-1)
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
@@ -63,9 +63,9 @@ function inf_temp_mps(sites)
         A[s1 => 1,s2 => 2, leftlink => 1] = 1/sqrt(2)
         A[s1 => 2,s2 => 1, leftlink => 1] = -1/sqrt(2)
 
-        U,S,V = svd(A, (s1, leftlink), cutoff=1e-15)
-        ψ[j] = replacetags(U, "u", "l=$(j)")
-        ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
+        U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
+        ψ[j] = U
+        ψ[j+1] = S*V
         
       else
         rightlink = commonind(ψ[j+1], ψ[j+2])
@@ -76,9 +76,9 @@ function inf_temp_mps(sites)
         A[s1 => 1,s2 => 2, rightlink=>1, leftlink =>1] = 1/sqrt(2)
         A[s1 => 2,s2 => 1, rightlink=>1, leftlink =>1] = -1/sqrt(2)
 
-        U,S,V = svd(A, (s1, leftlink), cutoff=1e-15)
-        ψ[j] = replacetags(U, "u", "l=$(j)")
-        ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
+        U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
+        ψ[j] = U
+        ψ[j+1] = S*V
       end
     end
 

@@ -40,9 +40,9 @@ function inf_temp_mps(sites)
         A[s1=>1, s2=>2, rightlink => 1] = 1/sqrt(2)
         A[s1=>2, s2=>1, rightlink => 1] = -1/sqrt(2)
 
-        U,S,V = svd(A, (s1), cutoff=1e-15)
-        ψ[j] = replacetags(U, "u", "l=$(j)")
-        ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
+        U,S,V = svd(A, (s1), cutoff=1e-16, lefttags="Link,l=$(j)")
+        ψ[j] = U
+        ψ[j+1] = S*V
 
       elseif (j == num_sites-1)
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
@@ -51,9 +51,9 @@ function inf_temp_mps(sites)
         A[s1 => 1,s2 => 2, leftlink => 1] = 1/sqrt(2)
         A[s1 => 2,s2 => 1, leftlink => 1] = -1/sqrt(2)
 
-        U,S,V = svd(A, (s1, leftlink), cutoff=1e-15)
-        ψ[j] = replacetags(U, "u", "l=$(j)")
-        ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
+        U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
+        ψ[j] = U
+        ψ[j+1] = S*V
         
       else
         rightlink = commonind(ψ[j+1], ψ[j+2])
@@ -64,9 +64,9 @@ function inf_temp_mps(sites)
         A[s1 => 1,s2 => 2, rightlink=>1, leftlink =>1] = 1/sqrt(2)
         A[s1 => 2,s2 => 1, rightlink=>1, leftlink =>1] = -1/sqrt(2)
 
-        U,S,V = svd(A, (s1, leftlink), cutoff=1e-15)
-        ψ[j] = replacetags(U, "u", "l=$(j)")
-        ψ[j+1] = replacetags(S*V, "u", "l=$(j)")
+        U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
+        ψ[j] = U
+        ψ[j+1] = S*V
       end
     end
 
@@ -74,7 +74,7 @@ function inf_temp_mps(sites)
   end
 end
 
-function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
+function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, Jprime=0)
   s = siteinds("S=1/2", 2 * L; conserve_qns=true)
   H_imag = MPO(heisenberg(L, false), s)
   H_real = MPO(heisenberg(L, true), s)
@@ -92,7 +92,8 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
       normalize=true,
       maxdim=maxdim,
       cutoff=cutoff,
-      outputlevel=1
+      outputlevel=1,
+      order=4
     )
   end
 
@@ -113,7 +114,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_disentangled.h5","w")
+    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_disentangled_order4.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
@@ -126,7 +127,8 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
       normalize=true,
       maxdim=maxdim,
       cutoff=cutoff,
-      outputlevel=1
+      outputlevel=1,
+      order=4
     )
     ψ2 = tdvp(H_real, -im * δt, ψ2;
       nsweeps=1,
@@ -134,7 +136,8 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
       normalize=true,
       maxdim=maxdim,
       cutoff=cutoff,
-      outputlevel=1
+      outputlevel=1,
+      order=4
     )
   end
 
@@ -154,6 +157,6 @@ L = parse(Int64, ARGS[1])
 maxdim = parse(Int64, ARGS[2])
 β_max = parse(Float64, ARGS[3])
 δt = parse(Float64, ARGS[4])
-# J2 = parse(Float64, ARGS[5])
+# Jprime = parse(Float64, ARGS[5])
 
 main(L=L, maxdim=maxdim, β_max=β_max, δt=δt)

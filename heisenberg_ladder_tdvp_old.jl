@@ -28,7 +28,8 @@ function inf_temp_mps(sites)
   if (num_sites % 2 != 0)
     throw(DomainError(num_sites,"Expects even number of sites for ancilla-physical singlets."))
   else
-    ψ = MPS(sites)
+    state = [isodd(n) ? "Up" : "Dn" for n=1:num_sites]
+    ψ = MPS(sites, state) # Initialize as Neel state to get correct QNs between singlets
     for j = 1:2:num_sites-1
       s1 = sites[j]
       s2 = sites[j+1]
@@ -113,7 +114,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_disentangled.h5","w")
+    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_qn.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)

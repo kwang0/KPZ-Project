@@ -40,7 +40,8 @@ function inf_temp_mps(sites)
   if (num_sites % 2 != 0)
     throw(DomainError(num_sites,"Expects even number of sites for ancilla-physical singlets."))
   else
-    ψ = MPS(sites)
+    state = [isodd(n) ? "Up" : "Dn" for n=1:num_sites]
+    ψ = MPS(sites, state) # Initialize as Neel state to get correct QNs between singlets
     for j = 1:2:num_sites-1
       s1 = sites[j]
       s2 = sites[j+1]

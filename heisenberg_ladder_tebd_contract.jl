@@ -65,25 +65,25 @@ function ITensors.op(::OpName"expiSS", ::SiteType"S=1/2", s1::Index, s2::Index; 
   return exp(-im * t * h)
 end
 
-function A_sweep(ψ, L, sites, two_sites, t, cut, m, final)
+function A_sweep(ψ, L, sites, two_sites, t, cut, m, alg, final)
   new_two_sites = ITensor[] # Vector of contracted two-site tensors to pass to B_sweep
 
   # Initial edge case
   three_site = ψ[1]*ψ[2]*ψ[3]
   three_site = apply(op("expiSS", sites[1], sites[3], t=t), three_site)
-  U,S,V = svd(three_site, (sites[1]), cutoff=cut, maxdim=m, lefttags="Link,l=1")
+  U,S,V = svd(three_site, (sites[1]), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=1")
   ψ[1] = U
 
   three_site = S*V * ψ[4]
   three_site = apply(op("expiSS", sites[2], sites[4], t=-t), three_site)
   leftlink = dag(commonind(ψ[1], three_site))
-  U,S,V = svd(three_site, (sites[2], leftlink), cutoff=cut, maxdim=m, lefttags="Link,l=2")
+  U,S,V = svd(three_site, (sites[2], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=2")
   ψ[2] = U
   two_site = S*V
 
   if (final) # Final sweep, don't pass to B_sweep, update psi instead with svd's of two_site
     leftlink = dag(commonind(ψ[2], two_site))
-    U,S,V = svd(two_site, (sites[3], leftlink), cutoff=cut, maxdim=m, lefttags="Link,l=3")
+    U,S,V = svd(two_site, (sites[3], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=3")
     ψ[3] = U
     ψ[4] = S*V
   else
@@ -94,19 +94,19 @@ function A_sweep(ψ, L, sites, two_sites, t, cut, m, final)
     three_site = popfirst!(two_sites) * ψ[i+2]
     three_site = apply(op("expiSS", sites[i], sites[i+2], t=t), three_site)
     leftlink = dag(commonind(ψ[i-1], three_site))
-    U,S,V = svd(three_site, (sites[i], leftlink), cutoff=cut, maxdim=m, lefttags="Link,l=$(i)")
+    U,S,V = svd(three_site, (sites[i], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i)")
     ψ[i] = U
 
     three_site = S*V * ψ[i+3]
     three_site = apply(op("expiSS", sites[i+1], sites[i+3], t=-t), three_site)
     leftlink = dag(commonind(ψ[i], three_site))
-    U,S,V = svd(three_site, (sites[i+1], leftlink), cutoff=cut, maxdim=m, lefttags="Link,l=$(i+1)")
+    U,S,V = svd(three_site, (sites[i+1], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i+1)")
     ψ[i+1] = U
     two_site = S*V
 
     if (final || (i == 2*L - 3))
       leftlink = dag(commonind(ψ[i+1], two_site))
-      U,S,V = svd(two_site, (sites[i+2], leftlink), cutoff=cut, maxdim=m, lefttags="Link,l=$(i+2)")
+      U,S,V = svd(two_site, (sites[i+2], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i+2)")
       ψ[i+2] = U
       ψ[i+3] = S*V
     else
@@ -117,20 +117,20 @@ function A_sweep(ψ, L, sites, two_sites, t, cut, m, final)
   return ψ, new_two_sites
 end
 
-function B_sweep(ψ, L, sites, two_sites, t, cut, m)
+function B_sweep(ψ, L, sites, two_sites, t, cut, m, alg)
   new_two_sites = ITensor[] # Vector of contracted two-site tensors to pass to A_sweep
 
   for i in 3:4:(2*L - 5)
     three_site = popfirst!(two_sites) * ψ[i+2]
     three_site = apply(op("expiSS", sites[i], sites[i+2], t=t), three_site)
     leftlink = dag(commonind(ψ[i-1], three_site))
-    U,S,V = svd(three_site, (sites[i], leftlink), cutoff=cut, maxdim=m, lefttags="Link,l=$(i)")
+    U,S,V = svd(three_site, (sites[i], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i)")
     ψ[i] = U
 
     three_site = S*V * ψ[i+3]
     three_site = apply(op("expiSS", sites[i+1], sites[i+3], t=-t), three_site)
     leftlink = dag(commonind(ψ[i], three_site))
-    U,S,V = svd(three_site, (sites[i+1], leftlink), cutoff=cut, maxdim=m, lefttags="Link,l=$(i+1)")
+    U,S,V = svd(three_site, (sites[i+1], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i+1)")
     ψ[i+1] = U
 
     push!(new_two_sites, S*V)
@@ -139,7 +139,57 @@ function B_sweep(ψ, L, sites, two_sites, t, cut, m)
   return ψ, new_two_sites
 end
 
+function trotter_sweep(ψ, L, sites, start, t, cut, m, alg)
+  # Initial edge case
+  if (start == 5)
+    orthogonalize!(ψ, 1; cutoff=cut, maxdim=m)
+    three_site = ψ[1]*ψ[2]*ψ[3]
+    three_site = apply(op("expiSS", sites[1], sites[3], t=t), three_site)
+    U,S,V = svd(three_site, (sites[1]), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=1")
+    ψ[1] = U
+
+    three_site = S*V * ψ[4]
+    three_site = apply(op("expiSS", sites[2], sites[4], t=-t), three_site)
+    leftlink = dag(commonind(ψ[1], three_site))
+    U,S,V = svd(three_site, (sites[2], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=2")
+    ψ[2] = U
+
+    two_site = S*V
+    leftlink = dag(commonind(ψ[2], two_site))
+    U,S,V = svd(two_site, (sites[3], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=3")
+    ψ[3] = U
+    ψ[4] = S*V
+  end
+
+  last = start + 2*L - 8
+
+  for i in start:4:last
+    orthogonalize!(ψ, i; cutoff=cut, maxdim=m)
+    three_site = ψ[i] * ψ[i+1] * ψ[i+2]
+    three_site = apply(op("expiSS", sites[i], sites[i+2], t=t), three_site)
+    leftlink = dag(commonind(ψ[i-1], three_site))
+    U,S,V = svd(three_site, (sites[i], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i)")
+    ψ[i] = U
+
+    three_site = S*V * ψ[i+3]
+    three_site = apply(op("expiSS", sites[i+1], sites[i+3], t=-t), three_site)
+    leftlink = dag(commonind(ψ[i], three_site))
+    U,S,V = svd(three_site, (sites[i+1], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i+1)")
+    ψ[i+1] = U
+
+    two_site = S*V
+    leftlink = dag(commonind(ψ[i+1], two_site))
+    U,S,V = svd(two_site, (sites[i+2], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i+2)")
+    ψ[i+2] = U
+    ψ[i+3] = S*V
+  end
+
+  return ψ
+end
+
 function fourth_order_contract(ψ, L, sites, δt, cut, m)
+  alg = "divide_and_conquer"
+
   two_sites = ITensor[]
   for i in 5:4:(2*L - 3)
     push!(two_sites, ψ[i] * ψ[i+1])
@@ -152,72 +202,34 @@ function fourth_order_contract(ψ, L, sites, δt, cut, m)
   b2 = -0.12039526945509726545
   b3 = 1 - 2 * (b1 + b2)
 
-  ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a1 * δt, cut, m, false)
-  ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b1 * δt, cut, m)
-  ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a2 * δt, cut, m, false)
-  ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b2 * δt, cut, m)
-  ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a3 * δt, cut, m, false)
-  ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b3 * δt, cut, m)
-  ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a3 * δt, cut, m, false)
-  ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b2 * δt, cut, m)
-  ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a2 * δt, cut, m, false)
-  ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b1 * δt, cut, m)
-  ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a1 * δt, cut, m, true)
+  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a1 * δt, cut, m, alg, false)
+  # ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b1 * δt, cut, m, alg)
+  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a2 * δt, cut, m, alg, false)
+  # ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b2 * δt, cut, m, alg)
+  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a3 * δt, cut, m, alg, false)
+  # ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b3 * δt, cut, m, alg)
+  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a3 * δt, cut, m, alg, false)
+  # ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b2 * δt, cut, m, alg)
+  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a2 * δt, cut, m, alg, false)
+  # ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b1 * δt, cut, m, alg)
+  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a1 * δt, cut, m, alg, true)
 
+  ψ = trotter_sweep(ψ, L, sites, 5, a1 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 3, b1 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, a2 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 3, b2 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, a3 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 3, b3 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, a3 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 3, b2 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, a2 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 3, b1 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, a1 * δt, cut, m, alg)
+  
   return ψ
 end
 
-# Forward and backward trotter sweep
-function trotter_sweep(ψ, L, sites, t, real_evolution, cut, m)
-  # Initial edge case
-  three_site = ψ[1]*ψ[2]*ψ[3]
-  three_site = apply(op("expiSS", sites[1], sites[3], t=t), three_site)
-  U,S,V = svd(three_site, (sites[1]), cutoff=cut, maxdim=m, lefttags="Link,l=1")
-  ψ[1] = U
-  two_site = S*V
-
-  # Forward sweep
-  for i in 2:1:(2*L-2)
-    three_site = two_site * ψ[i+2]
-    if (i%2 == 1)
-      three_site = apply(op("expiSS", sites[i], sites[i+2], t=t), three_site)
-    elseif (real_evolution)
-      three_site = apply(op("expiSS", sites[i], sites[i+2], t=-t), three_site)
-    end
-    leftlink = dag(commonind(ψ[i-1], three_site))
-    U,S,V = svd(three_site, (sites[i], leftlink), cutoff=cut, maxdim=m, lefttags="Link,l=$(i)")
-    ψ[i] = U
-    two_site = S*V
-  end
-
-  # Backward sweep
-  for i in (2*L-2):-1:2
-    three_site = two_site * ψ[i]
-    if (i%2 == 1)
-      three_site = apply(op("expiSS", sites[i], sites[i+2], t=t), three_site)
-    elseif (real_evolution)
-      three_site = apply(op("expiSS", sites[i], sites[i+2], t=-t), three_site)
-    end
-    leftlink = dag(commonind(ψ[i-1], three_site))
-    U,S,V = svd(three_site, (sites[i], sites[i+1], leftlink), cutoff=cut, maxdim=m, lefttags="Link,l=$(i+1)")
-    two_site = U
-    ψ[i+2] = S*V
-  end
-
-  # Final edge case
-  three_site = two_site * ψ[1]
-  three_site = apply(op("expiSS", sites[1], sites[3], t=t), three_site)
-  U,S,V = svd(three_site, (sites[1], sites[2]), cutoff=cut, maxdim=m, lefttags="Link,l=2")
-  two_site = U
-  ψ[3] = S*V
-  U,S,V = svd(two_site, (sites[1]), cutoff=cut, maxdim=m, lefttags="Link,l=1")
-  ψ[1] = U
-  ψ[2] = S*V
-
-  return ψ
-end
-
-function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100, maxdim=32)
+function main(; L=128, cutoff=1E-12, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100, maxdim=32)
   s = siteinds("S=1/2", 2 * L; conserve_qns=true)
 
   # Initial state is infinite-temperature mixed state (purification)
@@ -238,14 +250,14 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
 
   c = div(L, 2) # center site
   Sz_center = op("Sz",s[2*c-1])
-  ψ2 = apply(Sz_center, ψ; cutoff, maxdim)
-  normalize!(ψ2)
+  ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
+  # normalize!(ψ2)
 
   times = Float64[]
   corrs = ComplexF64[]
   for t in 0.0:δt:ttotal
-    ψ3 = apply(Sz_center, ψ2; cutoff, maxdim)
-    normalize!(ψ3)
+    ψ3 = apply(2 * Sz_center, ψ2; cutoff, maxdim)
+    # normalize!(ψ3)
     corr = inner(ψ, ψ3)
     println("$t $corr")
     flush(stdout)
@@ -253,7 +265,7 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_contract.h5","w")
+    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_orthocentered.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
@@ -270,6 +282,7 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
     normalize!(ψ2)
 
     println("Max bond dimension is $(maxlinkdim(ψ2))")
+    println("Norm of psi2 is $(norm(ψ2))")
   end
 
   # plt.loglog(times, abs.(corrs))

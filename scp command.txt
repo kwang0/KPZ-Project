@@ -1,0 +1,1 @@
+scp -r kwang98@lrc-xfer.lbl.gov:/global/home/users/kwang98/KPZ/data_jl .

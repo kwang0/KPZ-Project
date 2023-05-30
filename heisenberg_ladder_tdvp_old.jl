@@ -1,5 +1,6 @@
 using MKL
 using ITensors
+# using ITensorGPU
 using ITensorTDVP
 using Printf
 using PyPlot
@@ -79,9 +80,12 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   s = siteinds("S=1/2", 2 * L; conserve_qns=true)
   H_imag = MPO(heisenberg(L, false), s)
   H_real = MPO(heisenberg(L, true), s)
+  # H_imag = cuMPO(MPO(heisenberg(L, false), s))
+  # H_real = cuMPO(MPO(heisenberg(L, true), s))
 
   # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
   ψ = inf_temp_mps(s)
+  # ψ = cuMPS(inf_temp_mps(s))
 
   # Cool down to inverse temperature 
   for β in δτ:δτ:β_max/2
@@ -99,14 +103,15 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
   c = div(L, 2) # center site
   Sz_center = op("Sz",s[2*c-1])
-  ψ2 = apply(Sz_center, ψ; cutoff, maxdim)
-  normalize!(ψ2)
+  # Sz_center = cuITensor(op("Sz",s[2*c-1]))
+  ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
+  # normalize!(ψ2)
 
   times = Float64[]
   corrs = ComplexF64[]
   for t in 0.0:δt:ttotal
-    ψ3 = apply(Sz_center, ψ2; cutoff, maxdim)
-    normalize!(ψ3)
+    ψ3 = apply(2 * Sz_center, ψ2; cutoff, maxdim)
+    # normalize!(ψ3)
     corr = inner(ψ, ψ3)
     println("$t $corr")
     flush(stdout)
@@ -114,7 +119,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_qn.h5","w")
+    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_blocksparsethreaded.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
@@ -124,7 +129,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     ψ = tdvp(H_real, -im * δt, ψ;
       nsweeps=1,
       reverse_step=true,
-      normalize=true,
+      normalize=false,
       maxdim=maxdim,
       cutoff=cutoff,
       outputlevel=1
@@ -132,7 +137,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     ψ2 = tdvp(H_real, -im * δt, ψ2;
       nsweeps=1,
       reverse_step=true,
-      normalize=true,
+      normalize=false,
       maxdim=maxdim,
       cutoff=cutoff,
       outputlevel=1
@@ -147,9 +152,12 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   return times, corrs
 end
 
+# Set to identity to run on CPU
+# gpu = cu
+
 ITensors.Strided.set_num_threads(1)
-BLAS.set_num_threads(40)
-# ITensors.enable_threaded_blocksparse(true)
+BLAS.set_num_threads(1)
+ITensors.enable_threaded_blocksparse(true)
 
 L = parse(Int64, ARGS[1])
 maxdim = parse(Int64, ARGS[2])

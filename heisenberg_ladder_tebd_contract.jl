@@ -1,6 +1,7 @@
 using MKL
 using LinearAlgebra
 using ITensors
+using ITensorGPU
 using Printf
 using PyPlot
 using HDF5
@@ -65,91 +66,49 @@ function ITensors.op(::OpName"expiSS", ::SiteType"S=1/2", s1::Index, s2::Index; 
   return exp(-im * t * h)
 end
 
-function A_sweep(ψ, L, sites, two_sites, t, cut, m, alg, final)
-  new_two_sites = ITensor[] # Vector of contracted two-site tensors to pass to B_sweep
-
-  # Initial edge case
-  three_site = ψ[1]*ψ[2]*ψ[3]
-  three_site = apply(op("expiSS", sites[1], sites[3], t=t), three_site)
-  U,S,V = svd(three_site, (sites[1]), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=1")
-  ψ[1] = U
-
-  three_site = S*V * ψ[4]
-  three_site = apply(op("expiSS", sites[2], sites[4], t=-t), three_site)
-  leftlink = dag(commonind(ψ[1], three_site))
-  U,S,V = svd(three_site, (sites[2], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=2")
-  ψ[2] = U
-  two_site = S*V
-
-  if (final) # Final sweep, don't pass to B_sweep, update psi instead with svd's of two_site
-    leftlink = dag(commonind(ψ[2], two_site))
-    U,S,V = svd(two_site, (sites[3], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=3")
-    ψ[3] = U
-    ψ[4] = S*V
-  else
-    push!(new_two_sites, two_site)
+function create_gates(L, sites, t)
+  gates = ITensor[]
+  for i in 1:2:(2*L-3)
+    # push!(gates, op("expiSS", sites[i], sites[i+2], t=t))
+    # push!(gates, op("expiSS", sites[i+1], sites[i+3], t=-t))
+    push!(gates, cuITensor(op("expiSS", sites[i], sites[i+2], t=t)))
+    push!(gates, cuITensor(op("expiSS", sites[i+1], sites[i+3], t=-t)))
   end
 
-  for i in 5:4:(2*L - 3)
-    three_site = popfirst!(two_sites) * ψ[i+2]
-    three_site = apply(op("expiSS", sites[i], sites[i+2], t=t), three_site)
-    leftlink = dag(commonind(ψ[i-1], three_site))
-    U,S,V = svd(three_site, (sites[i], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i)")
-    ψ[i] = U
-
-    three_site = S*V * ψ[i+3]
-    three_site = apply(op("expiSS", sites[i+1], sites[i+3], t=-t), three_site)
-    leftlink = dag(commonind(ψ[i], three_site))
-    U,S,V = svd(three_site, (sites[i+1], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i+1)")
-    ψ[i+1] = U
-    two_site = S*V
-
-    if (final || (i == 2*L - 3))
-      leftlink = dag(commonind(ψ[i+1], two_site))
-      U,S,V = svd(two_site, (sites[i+2], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i+2)")
-      ψ[i+2] = U
-      ψ[i+3] = S*V
-    else
-      push!(new_two_sites, two_site)
-    end
-  end
-
-  return ψ, new_two_sites
+  return gates
 end
 
-function B_sweep(ψ, L, sites, two_sites, t, cut, m, alg)
-  new_two_sites = ITensor[] # Vector of contracted two-site tensors to pass to A_sweep
+function create_gate_list(L, sites, t)
+  a1 = 0.095848502741203681182
+  a2 = -0.078111158921637922695
+  a3 = 0.5 - (a1 + a2)
+  b1 = 0.42652466131587616168
+  b2 = -0.12039526945509726545
+  b3 = 1 - 2 * (b1 + b2)
 
-  for i in 3:4:(2*L - 5)
-    three_site = popfirst!(two_sites) * ψ[i+2]
-    three_site = apply(op("expiSS", sites[i], sites[i+2], t=t), three_site)
-    leftlink = dag(commonind(ψ[i-1], three_site))
-    U,S,V = svd(three_site, (sites[i], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i)")
-    ψ[i] = U
+  gate_list = Vector{Vector{ITensor}}(undef,6)
 
-    three_site = S*V * ψ[i+3]
-    three_site = apply(op("expiSS", sites[i+1], sites[i+3], t=-t), three_site)
-    leftlink = dag(commonind(ψ[i], three_site))
-    U,S,V = svd(three_site, (sites[i+1], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i+1)")
-    ψ[i+1] = U
+  gate_list[1] = create_gates(L, sites, a1 * t)
+  gate_list[2] = create_gates(L, sites, b1 * t)
+  gate_list[3] = create_gates(L, sites, a2 * t)
+  gate_list[4] = create_gates(L, sites, b2 * t)
+  gate_list[5] = create_gates(L, sites, a3 * t)
+  gate_list[6] = create_gates(L, sites, b3 * t)
 
-    push!(new_two_sites, S*V)
-  end
-
-  return ψ, new_two_sites
+  return gate_list
 end
 
-function trotter_sweep(ψ, L, sites, start, t, cut, m, alg)
+function trotter_sweep(ψ, L, sites, start, gates, cut, m, alg)
   # Initial edge case
   if (start == 5)
     orthogonalize!(ψ, 1; cutoff=cut, maxdim=m)
     three_site = ψ[1]*ψ[2]*ψ[3]
-    three_site = apply(op("expiSS", sites[1], sites[3], t=t), three_site)
+    three_site = apply(gates[1], three_site)
     U,S,V = svd(three_site, (sites[1]), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=1")
     ψ[1] = U
 
     three_site = S*V * ψ[4]
-    three_site = apply(op("expiSS", sites[2], sites[4], t=-t), three_site)
+    three_site = apply(gates[2], three_site)
     leftlink = dag(commonind(ψ[1], three_site))
     U,S,V = svd(three_site, (sites[2], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=2")
     ψ[2] = U
@@ -166,13 +125,13 @@ function trotter_sweep(ψ, L, sites, start, t, cut, m, alg)
   for i in start:4:last
     orthogonalize!(ψ, i; cutoff=cut, maxdim=m)
     three_site = ψ[i] * ψ[i+1] * ψ[i+2]
-    three_site = apply(op("expiSS", sites[i], sites[i+2], t=t), three_site)
+    three_site = apply(gates[i], three_site)
     leftlink = dag(commonind(ψ[i-1], three_site))
     U,S,V = svd(three_site, (sites[i], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i)")
     ψ[i] = U
 
     three_site = S*V * ψ[i+3]
-    three_site = apply(op("expiSS", sites[i+1], sites[i+3], t=-t), three_site)
+    three_site = apply(gates[i+1], three_site)
     leftlink = dag(commonind(ψ[i], three_site))
     U,S,V = svd(three_site, (sites[i+1], leftlink), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=$(i+1)")
     ψ[i+1] = U
@@ -187,71 +146,48 @@ function trotter_sweep(ψ, L, sites, start, t, cut, m, alg)
   return ψ
 end
 
-function fourth_order_contract(ψ, L, sites, δt, cut, m)
-  alg = "divide_and_conquer"
+function fourth_order_contract(ψ, L, sites, gate_list, cut, m)
+  alg = "qr_iteration"
 
-  two_sites = ITensor[]
-  for i in 5:4:(2*L - 3)
-    push!(two_sites, ψ[i] * ψ[i+1])
-  end
-
-  a1 = 0.095848502741203681182
-  a2 = -0.078111158921637922695
-  a3 = 0.5 - (a1 + a2)
-  b1 = 0.42652466131587616168
-  b2 = -0.12039526945509726545
-  b3 = 1 - 2 * (b1 + b2)
-
-  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a1 * δt, cut, m, alg, false)
-  # ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b1 * δt, cut, m, alg)
-  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a2 * δt, cut, m, alg, false)
-  # ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b2 * δt, cut, m, alg)
-  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a3 * δt, cut, m, alg, false)
-  # ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b3 * δt, cut, m, alg)
-  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a3 * δt, cut, m, alg, false)
-  # ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b2 * δt, cut, m, alg)
-  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a2 * δt, cut, m, alg, false)
-  # ψ, two_sites = B_sweep(ψ, L, sites, two_sites, b1 * δt, cut, m, alg)
-  # ψ, two_sites = A_sweep(ψ, L, sites, two_sites, a1 * δt, cut, m, alg, true)
-
-  ψ = trotter_sweep(ψ, L, sites, 5, a1 * δt, cut, m, alg)
-  ψ = trotter_sweep(ψ, L, sites, 3, b1 * δt, cut, m, alg)
-  ψ = trotter_sweep(ψ, L, sites, 5, a2 * δt, cut, m, alg)
-  ψ = trotter_sweep(ψ, L, sites, 3, b2 * δt, cut, m, alg)
-  ψ = trotter_sweep(ψ, L, sites, 5, a3 * δt, cut, m, alg)
-  ψ = trotter_sweep(ψ, L, sites, 3, b3 * δt, cut, m, alg)
-  ψ = trotter_sweep(ψ, L, sites, 5, a3 * δt, cut, m, alg)
-  ψ = trotter_sweep(ψ, L, sites, 3, b2 * δt, cut, m, alg)
-  ψ = trotter_sweep(ψ, L, sites, 5, a2 * δt, cut, m, alg)
-  ψ = trotter_sweep(ψ, L, sites, 3, b1 * δt, cut, m, alg)
-  ψ = trotter_sweep(ψ, L, sites, 5, a1 * δt, cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, gate_list[1], cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 3, gate_list[2], cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, gate_list[3], cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 3, gate_list[4], cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, gate_list[5], cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 3, gate_list[6], cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, gate_list[5], cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 3, gate_list[4], cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, gate_list[3], cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 3, gate_list[2], cut, m, alg)
+  ψ = trotter_sweep(ψ, L, sites, 5, gate_list[1], cut, m, alg)
   
   return ψ
 end
 
 function main(; L=128, cutoff=1E-12, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100, maxdim=32)
-  s = siteinds("S=1/2", 2 * L; conserve_qns=true)
+  sites = siteinds("S=1/2", 2 * L; conserve_qns=false)
 
   # Initial state is infinite-temperature mixed state (purification)
-  ψ = inf_temp_mps(s)
-
-  # Parameter for fourth order trotterization
-  # α = 1.0 / (2 - 2^(1/3))
+  # ψ = inf_temp_mps(sites)
+  ψ = cuMPS(inf_temp_mps(sites))
 
   # Cool down to inverse temperature 
   for β in δτ:δτ:beta_max/2
     @printf("β = %.2f\n", 2*β)
     flush(stdout)
-    ψ = trotter_sweep(ψ, L, s, (1/2) * δτ, false, cutoff, maxdim)
+    ψ = trotter_sweep(ψ, L, sites, (1/2) * δτ, false, cutoff, maxdim)
     # ψ = trotter_sweep(ψ, L, s, ((1-2*α)/2) * δτ, false, cutoff, maxdim)
     # ψ = trotter_sweep(ψ, L, s, (α/2) * δτ, false, cutoff, maxdim)
     normalize!(ψ)
   end
 
   c = div(L, 2) # center site
-  Sz_center = op("Sz",s[2*c-1])
+  # Sz_center = op("Sz",sites[2*c-1])
+  Sz_center = cuITensor(op("Sz",sites[2*c-1]))
   ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
+
+  real_gate_list = create_gate_list(L, sites, δt)
 
   times = Float64[]
   corrs = ComplexF64[]
@@ -265,33 +201,32 @@ function main(; L=128, cutoff=1E-12, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_orthocentered.h5","w")
+    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_gpu.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
 
     t≈ttotal && break
 
-    ψ = fourth_order_contract(ψ, L, s, δt, cutoff, maxdim)
-    # ψ = trotter_sweep(ψ, L, s, ((1-2*α)/2) * δt, true, cutoff, maxdim)
-    # ψ = trotter_sweep(ψ, L, s, (α/2) * δt, true, cutoff, maxdim)
-    normalize!(ψ)
-    ψ2 = fourth_order_contract(ψ2, L, s, δt, cutoff, maxdim)
-    # ψ2 = trotter_sweep(ψ2, L, s, ((1-2*α)/2) * δt, true, cutoff, maxdim)
-    # ψ2 = trotter_sweep(ψ2, L, s, (α/2) * δt, true, cutoff, maxdim)
-    normalize!(ψ2)
+    ψ = @time fourth_order_contract(ψ, L, sites, real_gate_list, cutoff, maxdim)
+    # normalize!(ψ)
+    ψ2 = @time fourth_order_contract(ψ2, L, sites, real_gate_list, cutoff, maxdim)
+    # normalize!(ψ2)
 
     println("Max bond dimension is $(maxlinkdim(ψ2))")
     println("Norm of psi2 is $(norm(ψ2))")
   end
 
-  # plt.loglog(times, abs.(corrs))
-  # plt.xlabel("t")
-  # plt.ylabel("|C(T,x=0,t)|")
-  # plt.show()
+  plt.loglog(times, abs.(corrs))
+  plt.xlabel("t")
+  plt.ylabel("|C(T,x=0,t)|")
+  plt.show()
 
   return times, corrs
 end
+
+# Set to identity to run on CPU
+gpu = cu
 
 ITensors.Strided.set_num_threads(1)
 BLAS.set_num_threads(40)

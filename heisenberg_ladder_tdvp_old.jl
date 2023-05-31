@@ -119,7 +119,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_blocksparsethreaded.h5","w")
+    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_unnormed.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
@@ -156,8 +156,8 @@ end
 # gpu = cu
 
 ITensors.Strided.set_num_threads(1)
-BLAS.set_num_threads(1)
-ITensors.enable_threaded_blocksparse(true)
+BLAS.set_num_threads(40)
+# ITensors.enable_threaded_blocksparse(true)
 
 L = parse(Int64, ARGS[1])
 maxdim = parse(Int64, ARGS[2])

@@ -5,8 +5,9 @@ using Printf
 using PyPlot
 using HDF5
 using LinearAlgebra
+include("basis_extend.jl")
 
-function heisenberg(L, J2)
+function heisenberg(L, J2, real_evolution)
   os = OpSum()
 
   # Adding J1 = 1 terms in ladder
@@ -14,6 +15,13 @@ function heisenberg(L, J2)
     os += "Sz", j, "Sz", j + 4
     os += 0.5, "S+", j, "S-", j + 4
     os += 0.5, "S-", j, "S+", j + 4
+
+    if (real_evolution)
+      # Apply disentangler exp(iHt) on ancilla sites
+      os += -1, "Sz", j + 1, "Sz", j + 5
+      os += -0.5, "S+", j + 1, "S-", j + 5
+      os += -0.5, "S-", j + 1, "S+", j + 5
+    end
   end
 
   # Adding J2 rung terms in ladder
@@ -21,7 +29,15 @@ function heisenberg(L, J2)
     os += J2, "Sz", j, "Sz", j + 2
     os += 0.5*J2, "S+", j, "S-", j + 2
     os += 0.5*J2, "S-", j, "S+", j + 2
+
+    if (real_evolution)
+      # Apply disentangler exp(iHt) on ancilla sites
+      os += -1*J2, "Sz", j + 1, "Sz", j + 3
+      os += -0.5*J2, "S+", j + 1, "S-", j + 3
+      os += -0.5*J2, "S-", j + 1, "S+", j + 3
+    end
   end
+
   return os
 end
 
@@ -88,17 +104,19 @@ function inf_temp_mps(sites)
 end
 
 function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
-  s = siteinds("S=1/2", 4 * L; conserve_qns=true)
-  H = MPO(heisenberg(L, J2), s)
+  sites = siteinds("S=1/2", 4 * L; conserve_qns=false)
+  H_imag = MPO(heisenberg(L, J2, false), sites)
+  H_real = MPO(heisenberg(L, J2, true), sites)
 
   # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
-  ψ = inf_temp_mps(s)
+  ψ = inf_temp_mps(sites)
+  # ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
 
   # Cool down to inverse temperature 
   for β in δτ:δτ:β_max/2
     @printf("β = %.2f\n", 2*β)
     flush(stdout)
-    ψ = tdvp(H, -δτ, ψ;
+    ψ = tdvp(H_imag, -δτ, ψ;
       nsweeps=1,
       reverse_step=true,
       normalize=true,
@@ -109,15 +127,17 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   end
 
   c = div(L, 2) # center site
-  Sz_center = op("Sz",s[4*c-3])
-  ψ2 = apply(Sz_center, ψ; cutoff, maxdim)
-  normalize!(ψ2)
+  Sz_center = op("Sz",sites[4*c-3])
+  orthogonalize!(ψ, 4*c-3)
+  ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
+  # normalize!(ψ2)
 
   times = Float64[]
   corrs = ComplexF64[]
   for t in 0.0:δt:ttotal
-    ψ3 = apply(Sz_center, ψ2; cutoff, maxdim)
-    normalize!(ψ3)
+    orthogonalize!(ψ, 4*c-3)
+    ψ3 = apply(2 * Sz_center, ψ2; cutoff, maxdim)
+    # normalize!(ψ3)
     corr = inner(ψ, ψ3)
     println("$t $corr")
     flush(stdout)
@@ -125,25 +145,30 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_J2$(J2).h5","w")
+    F = h5open("data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_unnormed.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
 
     t≈ttotal && break
 
-    ψ = tdvp(H, -im * δt, ψ;
+    # ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
+    if (maxlinkdim(ψ2) < 100)
+      ψ2 = basis_extend(ψ2, H_real; cutoff, extension_krylovdim=2)
+    end
+
+    ψ = tdvp(H_real, -im * δt, ψ;
       nsweeps=1,
       reverse_step=true,
-      normalize=true,
+      normalize=false,
       maxdim=maxdim,
       cutoff=cutoff,
       outputlevel=1
     )
-    ψ2 = tdvp(H, -im * δt, ψ2;
+    ψ2 = tdvp(H_real, -im * δt, ψ2;
       nsweeps=1,
       reverse_step=true,
-      normalize=true,
+      normalize=false,
       maxdim=maxdim,
       cutoff=cutoff,
       outputlevel=1

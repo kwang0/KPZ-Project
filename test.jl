@@ -1,39 +1,43 @@
-# using BenchmarkTools
-# using ITensors
-# using LinearAlgebra
+using ITensors
+using ITensorTDVP
 
-# function main(; d = 20, order = 4)
-#   BLAS.set_num_threads(1)
-#   ITensors.Strided.set_num_threads(1)
+n = 10
+s = siteinds("S=1/2", n)
 
-#   println("#################################################")
-#   println("# order = ", order)
-#   println("# d = ", d)
-#   println("#################################################")
-#   println()
+function heisenberg(n)
+  os = OpSum()
+  for j in 1:(n - 1)
+    os += 0.5, "S+", j, "S-", j + 1
+    os += 0.5, "S-", j, "S+", j + 1
+    os += "Sz", j, "Sz", j + 1
+  end
+  return os
+end
 
-#   i(n) = Index(QN(0) => d, QN(1) => d; tags = "i$n")
-#   is = IndexSet(i, order ÷ 2)
-#   A = randomITensor(is'..., dag(is)...)
-#   B = randomITensor(is'..., dag(is)...)
+H = MPO(heisenberg(n), s)
+ψ = randomMPS(s, "↑"; linkdims=10)
 
-#   ITensors.disable_threaded_blocksparse()
+@show inner(ψ', H, ψ) / inner(ψ, ψ)
 
-#   println("Serial contract:")
-#   @disable_warn_order begin
-#     C_contract = @btime $A' * $B samples = 5
-#   end
-#   println()
+ϕ = tdvp(
+  H,
+  -1.0,
+  ψ;
+  nsweeps=20,
+  reverse_step=false,
+  normalize=true,
+  maxdim=30,
+  cutoff=1e-10,
+  outputlevel=1,
+  write_when_maxdim_exceeds=10
+)
 
-#   println("Threaded contract:")
-#   @disable_warn_order begin
-#     ITensors.enable_threaded_blocksparse(true)
-#     C_threaded_contract = @btime $A' * $B samples = 5
-#     ITensors.enable_threaded_blocksparse(false)
-#   end
-#   println()
-#   @show C_contract ≈ C_threaded_contract
-#   return nothing
-# end
+@show inner(ϕ', H, ϕ) / inner(ϕ, ϕ)
 
-# main(d = 20, order = 4)
+e2, ϕ2 = dmrg(H, ψ; nsweeps=10, maxdim=20, cutoff=1e-10)
+
+@show inner(ϕ2', H, ϕ2) / inner(ϕ2, ϕ2)
+
+ϕ3 = ITensorTDVP.dmrg(H, ψ; nsweeps=10, maxdim=20, cutoff=1e-10, outputlevel=1)
+
+@show inner(ϕ3', H, ϕ3) / inner(ϕ3, ϕ3)

@@ -1,7 +1,7 @@
 using MKL
 using LinearAlgebra
 using ITensors
-using ITensorGPU
+# using ITensorGPU
 using Printf
 using PyPlot
 using HDF5
@@ -69,10 +69,10 @@ end
 function create_gates(L, sites, t)
   gates = ITensor[]
   for i in 1:2:(2*L-3)
-    # push!(gates, op("expiSS", sites[i], sites[i+2], t=t))
-    # push!(gates, op("expiSS", sites[i+1], sites[i+3], t=-t))
-    push!(gates, cuITensor(op("expiSS", sites[i], sites[i+2], t=t)))
-    push!(gates, cuITensor(op("expiSS", sites[i+1], sites[i+3], t=-t)))
+    push!(gates, op("expiSS", sites[i], sites[i+2], t=t))
+    push!(gates, op("expiSS", sites[i+1], sites[i+3], t=-t))
+    # push!(gates, cuITensor(op("expiSS", sites[i], sites[i+2], t=t)))
+    # push!(gates, cuITensor(op("expiSS", sites[i+1], sites[i+3], t=-t)))
   end
 
   return gates
@@ -168,8 +168,8 @@ function main(; L=128, cutoff=1E-12, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
   sites = siteinds("S=1/2", 2 * L; conserve_qns=false)
 
   # Initial state is infinite-temperature mixed state (purification)
-  # ψ = inf_temp_mps(sites)
-  ψ = cuMPS(inf_temp_mps(sites))
+  ψ = inf_temp_mps(sites)
+  # ψ = cuMPS(inf_temp_mps(sites))
 
   # Cool down to inverse temperature 
   for β in δτ:δτ:beta_max/2
@@ -182,8 +182,8 @@ function main(; L=128, cutoff=1E-12, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
   end
 
   c = div(L, 2) # center site
-  # Sz_center = op("Sz",sites[2*c-1])
-  Sz_center = cuITensor(op("Sz",sites[2*c-1]))
+  Sz_center = op("Sz",sites[2*c-1])
+  # Sz_center = cuITensor(op("Sz",sites[2*c-1]))
   ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
@@ -195,13 +195,15 @@ function main(; L=128, cutoff=1E-12, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
     ψ3 = apply(2 * Sz_center, ψ2; cutoff, maxdim)
     # normalize!(ψ3)
     corr = inner(ψ, ψ3)
+    corr /= norm(ψ)
+    corr /= norm(ψ3)
     println("$t $corr")
     flush(stdout)
     push!(times, t)
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_gpu.h5","w")
+    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_valuenormed.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
@@ -226,7 +228,7 @@ function main(; L=128, cutoff=1E-12, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
 end
 
 # Set to identity to run on CPU
-gpu = cu
+# gpu = cu
 
 ITensors.Strided.set_num_threads(1)
 BLAS.set_num_threads(40)

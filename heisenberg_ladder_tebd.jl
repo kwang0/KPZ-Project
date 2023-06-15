@@ -1,6 +1,7 @@
 using MKL
 using LinearAlgebra
 using ITensors
+using ITensorTDVP
 using Printf
 using PyPlot
 using HDF5
@@ -62,7 +63,7 @@ function ITensors.op(::OpName"expiSS", ::SiteType"S=1/2", s1::Index, s2::Index; 
     1 / 2 * op("S+", s1) * op("S-", s2) +
     1 / 2 * op("S-", s1) * op("S+", s2) +
     op("Sz", s1) * op("Sz", s2)
-  return exp(-im * t * h)
+  return cuITensor(exp(-im * t * h))
 end
 
 # function fourth_order_trotter_gates(L, sites, δt, real_evolution)
@@ -128,13 +129,13 @@ function fourth_order_trotter_gates(L, sites, δt, real_evolution)
 end
 
 function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=100, maxdim=32)
-  s = siteinds("S=1/2", 2 * L; conserve_qns=true)
+  s = siteinds("S=1/2", 2 * L; conserve_qns=false)
 
   # Make purification gates
   im_gates = fourth_order_trotter_gates(L, s, -im * δτ, false)
 
   # Initial state is infinite-temperature mixed state (purification)
-  ψ = inf_temp_mps(s)
+  ψ = cuMPS(inf_temp_mps(s))
 
   # Cool down to inverse temperature 
   for β in δτ:δτ:beta_max/2
@@ -148,15 +149,15 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
   real_gates = fourth_order_trotter_gates(L, s, δt, true)
 
   c = div(L, 2) # center site
-  Sz_center = op("Sz",s[2*c-1])
-  ψ2 = apply(Sz_center, ψ; cutoff, maxdim)
-  normalize!(ψ2)
+  Sz_center = cuITensor(op("Sz",s[2*c-1]))
+  ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
+  # normalize!(ψ2)
 
   times = Float64[]
   corrs = ComplexF64[]
   for t in 0.0:δt:ttotal
-    ψ3 = apply(Sz_center, ψ2; cutoff, maxdim)
-    normalize!(ψ3)
+    ψ3 = apply(2 * Sz_center, ψ2; cutoff, maxdim)
+    # normalize!(ψ3)
     corr = inner(ψ, ψ3)
     println("$t $corr")
     flush(stdout)
@@ -164,7 +165,7 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
     push!(corrs, corr)
 
     # Writing to data file
-    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_order4opt.h5","w")
+    F = h5open("data_jl/tebd_L$(L)_chi$(maxdim)_beta$(beta_max)_dt$(δt)_apply_unnormed.h5","w")
     F["times"] = times
     F["corrs"] = corrs
     close(F)
@@ -172,9 +173,9 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
     t≈ttotal && break
 
     ψ = apply(real_gates, ψ; cutoff, maxdim)
-    normalize!(ψ)
+    # normalize!(ψ)
     ψ2 = apply(real_gates, ψ2; cutoff, maxdim)
-    normalize!(ψ2)
+    # normalize!(ψ2)
   end
 
   # plt.loglog(times, abs.(corrs))
@@ -185,8 +186,11 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, beta_max=3.0, δt=0.1, ttotal=10
   return times, corrs
 end
 
+# Set to identity to run on CPU
+gpu = cu
+
 ITensors.Strided.set_num_threads(1)
-BLAS.set_num_threads(40)
+BLAS.set_num_threads(1)
 # ITensors.enable_threaded_blocksparse(true)
 
 L = parse(Int64, ARGS[1])

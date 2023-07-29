@@ -1,54 +1,19 @@
-# using SerializedElementArrays: SerializedElementVector
-# const DiskVector{T} = SerializedElementVector{T}
-# import SerializedElementArrays: disk
-
-# import Base: *, copy, length
-# import NDTensors: dim
-# include("abstractprojmpo.jl")
-# include("diskprojmpo.jl")
-# include("projmposum.jl")
-
-using ITensors
-using ITensorTDVP
+using PyPlot
 
 
-n = 10
-s = siteinds("S=1/2", n)
-
-function heisenberg(n)
-  os = OpSum()
-  for j in 1:(n - 1)
-    os += 0.5, "S+", j, "S-", j + 1
-    os += 0.5, "S-", j, "S+", j + 1
-    os += "Sz", j, "Sz", j + 1
-  end
-  return os
+plt.clf()
+N = 100000
+A = rand(Float64, N)
+sort!(A)
+for i in 1:(N-1)
+  A[i] = A[i+1] - A[i]
 end
+pop!(A)
+sort!(A)
 
-H = MPO(heisenberg(n), s)
-ψ = randomMPS(s, "↑"; linkdims=10)
+binwidth = (A[N-1]-A[1])/ (N/100)
+plt.hist(A, bins=LinRange(A[1], A[N-1], N ÷ 100))
+ts = LinRange(0,10/N,1001)
+f = N * N * binwidth * exp.(-N * ts)
 
-@show inner(ψ', H, ψ) / inner(ψ, ψ)
-
-ϕ = tdvp(
-  H,
-  -1.0,
-  ψ;
-  nsweeps=20,
-  reverse_step=false,
-  normalize=true,
-  maxdim=30,
-  cutoff=1e-10,
-  outputlevel=1,
-  write_when_maxdim_exceeds=10
-)
-
-@show inner(ϕ', H, ϕ) / inner(ϕ, ϕ)
-
-e2, ϕ2 = dmrg(H, ψ; nsweeps=10, maxdim=20, cutoff=1e-10)
-
-@show inner(ϕ2', H, ϕ2) / inner(ϕ2, ϕ2)
-
-ϕ3 = ITensorTDVP.dmrg(H, ψ; nsweeps=10, maxdim=20, cutoff=1e-10, outputlevel=1)
-
-@show inner(ϕ3', H, ϕ3) / inner(ϕ3, ϕ3)
+plt.plot(ts, f)

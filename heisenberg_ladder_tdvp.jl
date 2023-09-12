@@ -141,7 +141,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     ψ2 = read(F, "psi2", MPS)
     ψ_norms = read(F, "psi_norms")
     ψ2_norms = read(F, "psi2_norms")
-    start_time = last(times)
+    start_time = last(times) + δt
     close(F)
 
     sites = siteinds(ψ)

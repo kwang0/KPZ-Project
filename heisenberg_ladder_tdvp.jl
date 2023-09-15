@@ -104,7 +104,7 @@ function inf_temp_mps(sites)
 end
 
 function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
-  sites = siteinds("S=1/2", 4 * L; conserve_qns=false)
+  sites = siteinds("S=1/2", 4 * L; conserve_qns=true)
   H_imag = MPO(heisenberg(L, J2, false), sites)
   H_real = MPO(heisenberg(L, J2, true), sites)
 
@@ -132,7 +132,8 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
-  filename = "data_jl/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_unnormed.h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_qnconserved_blocksparse.h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
   if (isfile(filename))
     F = h5open(filename,"r")
     times = read(F, "times")
@@ -211,7 +212,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 end
 
 ITensors.Strided.set_num_threads(1)
-BLAS.set_num_threads(80)
+BLAS.set_num_threads(256)
 # ITensors.enable_threaded_blocksparse(true)
 
 L = parse(Int64, ARGS[1])

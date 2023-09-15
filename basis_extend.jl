@@ -97,12 +97,12 @@ end
 
 function basis_extend(psi::MPS, H::MPO; kwargs...)
   kdim = get(kwargs, :extension_krylovdim, 2)
-  maxdim = 1 + maxlinkdim(psi)
+  maxdim = 2 + maxlinkdim(psi)
   ϵ_K = 1E-14
 
   phis = Vector{MPS}(undef, kdim)
   for k in 1:kdim
-    # print(k)
+    print(k)
     prev = k == 1 ? psi : phis[k - 1]
     phis[k] = apply(H, prev; cutoff=ϵ_K, maxdim)
     normalize!(phis[k])

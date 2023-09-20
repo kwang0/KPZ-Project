@@ -7,6 +7,17 @@ using HDF5
 using LinearAlgebra
 include("basis_extend.jl")
 
+mutable struct SizeObserver <: AbstractObserver
+end
+
+function ITensors.measure!(o::SizeObserver; bond, sweep, half_sweep, psi, kwargs...)
+  if bond==1 && half_sweep==2
+    psi_size =  Base.format_bytes(Base.summarysize(psi))
+    println("After sweep $sweep, |psi| = $psi_size")
+    GC.gc()
+  end
+end
+
 function heisenberg(L, J2, real_evolution)
   os = OpSum()
 
@@ -134,6 +145,8 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_qnconserved_blocksparse.h5"
   filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  # filename = "tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+
   if (isfile(filename))
     F = h5open(filename,"r")
     times = read(F, "times")
@@ -156,6 +169,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     start_time = 0.0
   end
 
+  obs = SizeObserver()
   for t in start_time:δt:ttotal
     orthogonalize!(ψ, 4*c-3)
     ψ3 = apply(2 * Sz_center, ψ2; cutoff, maxdim)
@@ -191,16 +205,20 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
       normalize=false,
       maxdim=maxdim,
       cutoff=cutoff,
-      outputlevel=1
+      outputlevel=1,
+      (observer!)=obs
     )
+    GC.gc()
     ψ2 = tdvp(H_real, -im * δt, ψ2;
       nsweeps=1,
       reverse_step=true,
       normalize=false,
       maxdim=maxdim,
       cutoff=cutoff,
-      outputlevel=1
+      outputlevel=1,
+      (observer!)=obs
     )
+    GC.gc()
   end
 
   # plt.loglog(times, abs.(corrs))

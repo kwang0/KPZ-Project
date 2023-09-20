@@ -9,6 +9,23 @@ using HDF5
 using LinearAlgebra
 include("basis_extend.jl")
 
+mutable struct SizeObserver <: AbstractObserver
+end
+
+function ITensors.measure!(o::SizeObserver; bond, sweep, half_sweep, psi, PH, kwargs...)
+  if bond % 16 == 0
+    psi_size =  Base.format_bytes(Base.summarysize(psi))
+    PH_size =  Base.format_bytes(Base.summarysize(PH))
+    println("Bond = $bond")
+    println("|psi| = $psi_size, |PH| = $PH_size")
+    println("Before cleanup")
+    CUDA.memory_status()
+    GC.gc()
+    println("After cleanup")
+    CUDA.memory_status()
+  end
+end
+
 function heisenberg(L, J2, real_evolution)
   os = OpSum()
 
@@ -134,12 +151,35 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
-  times = Float64[]
-  corrs = ComplexF64[]
-  ψ_norms = Float64[]
-  ψ2_norms = Float64[]
-  converted_to_gpu = false
-  for t in 0.0:δt:ttotal
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  # filename = "tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+
+  if (isfile(filename))
+    F = h5open(filename,"r")
+    times = read(F, "times")
+    corrs = read(F, "corrs")
+    ψ = cuMPS(read(F, "psi", MPS))
+    ψ2 = cuMPS(read(F, "psi2", MPS))
+    ψ_norms = read(F, "psi_norms")
+    ψ2_norms = read(F, "psi2_norms")
+    start_time = last(times) + δt
+    close(F)
+
+    sites = siteinds(ψ)
+    Sz_center = cuITensor(op("Sz",sites[4*c-3]))
+    H_real = cuMPO(MPO(heisenberg(L, J2, true), sites))
+    converted_to_gpu = true
+  else
+    times = Float64[]
+    corrs = ComplexF64[]
+    ψ_norms = Float64[]
+    ψ2_norms = Float64[]
+    start_time = 0.0
+    converted_to_gpu = false
+  end
+
+  obs = SizeObserver()
+  for t in start_time:δt:ttotal
     orthogonalize!(ψ, 4*c-3)
     ψ3 = apply(2 * Sz_center, ψ2; cutoff, maxdim)
     # normalize!(ψ3)
@@ -152,9 +192,11 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     push!(ψ2_norms, norm(ψ2))
 
     # Writing to data file
-    F = h5open("data_jl/tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_diskwrite.h5","w")
+    F = h5open(filename,"w")
     F["times"] = times
     F["corrs"] = corrs
+    F["psi"] = cpu(ψ)
+    F["psi2"] = cpu(ψ2)
     F["psi_norms"] = ψ_norms
     F["psi2_norms"] = ψ2_norms
     close(F)
@@ -162,7 +204,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     t≈ttotal && break
 
     # ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
-    if (maxlinkdim(ψ2) < 0)
+    if (maxlinkdim(ψ2) < 100)
       ψ2 = basis_extend(ψ2, H_real; cutoff, extension_krylovdim=2)
     elseif (!converted_to_gpu)
       H_real = cuMPO(H_real)
@@ -178,17 +220,20 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
       normalize=false,
       maxdim=maxdim,
       cutoff=cutoff,
-      outputlevel=1
+      outputlevel=1,
+      (observer!)=obs
     )
+    GC.gc()
     ψ2 = tdvp(H_real, -im * δt, ψ2;
       nsweeps=1,
       reverse_step=true,
       normalize=false,
       maxdim=maxdim,
       cutoff=cutoff,
-      outputlevel=1,
-      write_when_maxdim_exceeds=10
+      outputlevel=3,
+      (observer!)=obs
     )
+    GC.gc()
   end
 
   # plt.loglog(times, abs.(corrs))

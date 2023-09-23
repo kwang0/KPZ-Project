@@ -137,13 +137,13 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     )
   end
 
-  c = div(L, 2) # center site
-  Sz_center = op("Sz",sites[4*c-3])
-  orthogonalize!(ψ, 4*c-3)
+  c = 4 * div(L, 2) - 3 # center site
+  Sz_center = op("Sz",sites[c])
+  orthogonalize!(ψ, c)
   ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_qnconserved_blocksparse.h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
   filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
   # filename = "tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
 
@@ -155,15 +155,15 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     ψ2 = read(F, "psi2", MPS)
     ψ_norms = read(F, "psi_norms")
     ψ2_norms = read(F, "psi2_norms")
-    start_time = last(times) + δt
+    start_time = last(times)
     close(F)
 
     sites = siteinds(ψ)
-    Sz_center = op("Sz",sites[4*c-3])
+    Sz_center = op("Sz",sites[c])
     H_real = MPO(heisenberg(L, J2, true), sites)
   else
     times = Float64[]
-    corrs = ComplexF64[]
+    corrs = []
     ψ_norms = Float64[]
     ψ2_norms = Float64[]
     start_time = 0.0
@@ -171,14 +171,18 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
   obs = SizeObserver()
   for t in start_time:δt:ttotal
-    orthogonalize!(ψ, 4*c-3)
-    ψ3 = apply(2 * Sz_center, ψ2; cutoff, maxdim)
-    # normalize!(ψ3)
-    corr = inner(ψ, ψ3)
-    println("$t $corr")
+    corr = ComplexF64[]
+    for i in 1:2:(4*L - 1)
+      orthogonalize!(ψ, i)
+      orthogonalize!(ψ2, i)
+      push!(corr, inner(apply(cuITensor(2 * op("Sz",sites[i])), ψ; cutoff, maxdim), ψ2))
+    end
+    orthogonalize!(ψ2, c)
+
+    println("Time = $t")
     flush(stdout)
     push!(times, t)
-    push!(corrs, corr)
+    t == 0.0 ? corrs = corr : corrs = hcat(corrs, corr)
     push!(ψ_norms, norm(ψ))
     push!(ψ2_norms, norm(ψ2))
 

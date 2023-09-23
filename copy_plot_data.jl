@@ -9,13 +9,14 @@ using HDF5
 # J2 = parse(Float64, ARGS[5])
 
 L = 256
-maxdim = 1024
+maxdim = 512
 β_max = 0.0
 δt = 0.1
+J2 = 2.0
 
-for J2 in 0.1:0.1:0.5
-    input = "/pscratch/sd/k/kwang98/KPZ/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
-    output = "data_plots/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+# for J2 in 0.1:0.1:0.5
+    input = "/pscratch/sd/k/kwang98/KPZ/tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+    output = "data_plots/tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
 
     F = h5open(input,"r")
     times = read(F, "times")
@@ -31,4 +32,4 @@ for J2 in 0.1:0.1:0.5
 
     close(F)
     close(G)
-end
+# end

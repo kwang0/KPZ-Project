@@ -142,11 +142,11 @@ end
 
 function B_gates(L, sites, t, real_evolution)
   B = ops(vcat([("expiSS", (j, j + 4), (t=t,)) for j in 5:8:(4*L - 11)],
-  [("expiSS", (j + 2, j + 6), (t=t,)) for j in 1:8:(4*L - 7)]), sites)
+  [("expiSS", (j + 2, j + 6), (t=t,)) for j in 5:8:(4*L - 11)]), sites)
 
   if (real_evolution)
-    B = vcat(B, ops(vcat([("expiSS", (j, j + 4), (t=t,)) for j in 2:8:(4*L - 6)],
-  [("expiSS", (j + 2, j + 6), (t=t,)) for j in 2:8:(4*L - 6)]), sites))
+    B = vcat(B, ops(vcat([("expiSS", (j, j + 4), (t=-t,)) for j in 6:8:(4*L - 10)],
+  [("expiSS", (j + 2, j + 6), (t=-t,)) for j in 6:8:(4*L - 10)]), sites))
   end
   return B
 end
@@ -155,7 +155,7 @@ function C_gates(L, sites, t, real_evolution)
   C = ops([("expiSS", (j, j + 2), (t=t,)) for j in 1:4:(4*L - 3)], sites)
 
   if (real_evolution)
-    C = vcat(C, ops([("expiSS", (j, j + 2), (t=t,)) for j in 2:4:(4*L - 2)], sites))
+    C = vcat(C, ops([("expiSS", (j, j + 2), (t=-t,)) for j in 2:4:(4*L - 2)], sites))
   end
   return C
 end
@@ -253,6 +253,7 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     end
     orthogonalize!(ψ2, c)
     println("Time = $t")
+    println(corr[c])
     flush(stdout)
     push!(times, t)
     t == 0.0 ? corrs = corr : corrs = hcat(corrs, corr)

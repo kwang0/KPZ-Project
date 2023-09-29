@@ -15,21 +15,20 @@ maxdim = 512
 J2 = 2.0
 
 # for J2 in 0.1:0.1:0.5
-    input = "/pscratch/sd/k/kwang98/KPZ/tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
-    output = "data_plots/tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+    input = "/pscratch/sd/k/kwang98/KPZ/tebd_gpu_L256_chi1024_beta0.0_dt0.1_Jprime2.0_fullcorrs.h5"
+    output = "data_plots/tebd_gpu_L256_chi1024_beta0.0_dt0.1_Jprime2.0_fullcorrs.h5"
 
     F = h5open(input,"r")
     times = read(F, "times")
     corrs = read(F, "corrs")
     ψ_norms = read(F, "psi_norms")
     ψ2_norms = read(F, "psi2_norms")
+    close(F)
 
     G = h5open(output,"w")
     G["times"] = times
     G["corrs"] = corrs
     G["psi_norms"] = ψ_norms
     G["psi2_norms"] = ψ2_norms
-
-    close(F)
     close(G)
 # end

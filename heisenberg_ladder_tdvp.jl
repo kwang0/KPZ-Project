@@ -12,8 +12,8 @@ end
 
 function ITensors.measure!(o::SizeObserver; bond, sweep, half_sweep, psi, kwargs...)
   if bond==1 && half_sweep==2
-    psi_size =  Base.format_bytes(Base.summarysize(psi))
-    println("After sweep $sweep, |psi| = $psi_size")
+    # psi_size =  Base.format_bytes(Base.summarysize(psi))
+    # println("After sweep $sweep, |psi| = $psi_size")
     GC.gc()
   end
 end
@@ -114,7 +114,7 @@ function inf_temp_mps(sites)
   end
 end
 
-function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
+function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
   sites = siteinds("S=1/2", 4 * L; conserve_qns=true)
   H_imag = MPO(heisenberg(L, J2, false), sites)
   H_real = MPO(heisenberg(L, J2, true), sites)
@@ -175,7 +175,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     for i in 1:2:(4*L - 1)
       orthogonalize!(ψ, i)
       orthogonalize!(ψ2, i)
-      push!(corr, inner(apply(cuITensor(2 * op("Sz",sites[i])), ψ; cutoff, maxdim), ψ2))
+      push!(corr, inner(apply(2 * op("Sz",sites[i]), ψ; cutoff, maxdim), ψ2))
     end
     orthogonalize!(ψ2, c)
 

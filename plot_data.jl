@@ -18,6 +18,9 @@ function plot_hdf(f::String, norm::Integer=1)
     F = h5open(f,"r")
     times = read(F, "times")
     corrs = norm * abs.(read(F, "corrs"))
+    if length(size(corrs)) == 2
+        corrs = corrs[size(corrs)[1]÷2-1, :]
+    end
     # ψ_norms = read(F, "psi_norms")
     # ψ2_norms = read(F, "psi2_norms")
     close(F)

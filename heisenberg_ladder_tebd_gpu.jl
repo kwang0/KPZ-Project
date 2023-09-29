@@ -204,6 +204,7 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   c = 4 * div(L, 2) - 3 # center site
 
   filename = "/pscratch/sd/k/kwang98/KPZ/tebd_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_fullcorrs.h5"
+  # filename = "tebd_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_fullcorrs.h5"
   if (isfile(filename))
     F = h5open(filename,"r")
     times = read(F, "times")
@@ -243,6 +244,8 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
   for t in start_time:δt:ttotal
     tick()
+    # println(maxlinkdim(ψ))
+    # println(maxlinkdim(ψ2))
 
     corr = ComplexF64[]
     for i in 1:2:(4*L - 1)

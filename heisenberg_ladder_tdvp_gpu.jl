@@ -1,5 +1,7 @@
 using MKL
-using ITensorTDVP
+# using ITensorTDVP
+include("./itensortdvp/ITensorTDVP.jl")
+using .ITensorTDVP
 using ITensorGPU
 using ITensors
 using CUDA
@@ -20,13 +22,13 @@ function ITensors.measure!(o::SizeObserver; bond, sweep, half_sweep, psi, PH, kw
     PH_size =  Base.format_bytes(Base.summarysize(PH))
     println("Bond = $bond")
     println("|psi| = $psi_size, |PH| = $PH_size, |PH.LR| = $PH_LR_size, |PH.H| = $PH_H_size")
-    for i in 1:length(PH.LR)
-      LR =  Base.format_bytes(Base.summarysize(PH.LR[i]))
-      println("Site $i |PH.LR| = $LR")
-    end
+    # for i in 1:length(PH.LR)
+    #   LR =  Base.format_bytes(Base.summarysize(PH.LR[i]))
+    #   println("Site $i |PH.LR| = $LR")
+    # end
     # println("Before cleanup")
     # CUDA.memory_status()
-    # GC.gc()
+    GC.gc()
     # println("After cleanup")
     # CUDA.memory_status()
   end
@@ -157,9 +159,9 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
-  # filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_fullcorrs.h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_diskwrite.h5"
   # filename = "tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_fullcorrs.h5"
-  filename = "tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  # filename = "tdvp_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
@@ -243,8 +245,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
       cutoff=cutoff,
       outputlevel=1,
       (observer!)=obs,
-      solver_tol=1E-6,
-      solver_krylovdim=5,
+      write_when_maxdim_exceeds=maxdim-1
     )
     GC.gc()
   end

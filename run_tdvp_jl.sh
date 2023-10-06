@@ -12,6 +12,6 @@
 
 export OMP_NUM_THREADS=40
 export MKL_NUM_THREADS=40
-julia -t 40 $1 $2 $3 $4 $5 $6 > logs_jl/tdvp_L${2}_chi${3}_beta${4}_dt${5}_Jprime${6}_qnconserved_blocksparse.txt
+julia $1 $2 $3 $4 $5 $6 > logs_jl/tdvp_L${2}_chi${3}_beta${4}_dt${5}_Jprime${6}.txt
 
 exit 0

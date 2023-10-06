@@ -11,8 +11,8 @@ function inf_temp_mps(sites)
   if (num_sites % 2 != 0)
     throw(DomainError(num_sites,"Expects even number of sites for ancilla-physical singlets."))
   else
-    # state = [isodd(n) ? "Up" : "Dn" for n=1:num_sites]
-    ψ = randomMPS(sites)
+    state = ["UpDn" for n=1:num_sites]
+    ψ = MPS(sites, state)
     for j = 1:2:num_sites-1
       s1 = sites[j]
       s2 = sites[j+1]
@@ -21,10 +21,10 @@ function inf_temp_mps(sites)
         rightlink = commonind(ψ[j+1],ψ[j+2])
         A = ITensor(ComplexF64, s1, s2, rightlink)
 
-        A[s1=>1, s2=>1, rightlink => 1] = 1/2
-        A[s1=>4, s2=>4, rightlink => 1] = 1/2
-        A[s1=>2, s2=>2, rightlink => 1] = 1/2
-        A[s1=>3, s2=>3, rightlink => 1] = 1/2
+        A[s1=>1, s2=>4, rightlink => 1] = 1/2
+        A[s1=>4, s2=>1, rightlink => 1] = 1/2
+        A[s1=>2, s2=>3, rightlink => 1] = 1/2
+        A[s1=>3, s2=>2, rightlink => 1] = 1/2
 
         U,S,V = svd(A, (s1), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -34,10 +34,10 @@ function inf_temp_mps(sites)
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
         A = ITensor(ComplexF64, s1, s2, leftlink)
 
-        A[s1=>1, s2=>1, leftlink => 1] = 1/2
-        A[s1=>4, s2=>4, leftlink => 1] = 1/2
-        A[s1=>2, s2=>2, leftlink => 1] = 1/2
-        A[s1=>3, s2=>3, leftlink => 1] = 1/2
+        A[s1=>1, s2=>4, leftlink => 1] = 1/2
+        A[s1=>4, s2=>1, leftlink => 1] = 1/2
+        A[s1=>2, s2=>3, leftlink => 1] = 1/2
+        A[s1=>3, s2=>2, leftlink => 1] = 1/2
 
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -49,10 +49,10 @@ function inf_temp_mps(sites)
     
         A = ITensor(ComplexF64, s1, s2, rightlink, leftlink)
 
-        A[s1=>1, s2=>1, rightlink=>1, leftlink => 1] = 1/2
-        A[s1=>4, s2=>4, rightlink=>1, leftlink => 1] = 1/2
-        A[s1=>2, s2=>2, rightlink=>1, leftlink => 1] = 1/2
-        A[s1=>3, s2=>3, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>1, s2=>4, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>4, s2=>1, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>2, s2=>3, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>3, s2=>2, rightlink=>1, leftlink => 1] = 1/2
 
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -74,6 +74,11 @@ function ITensors.space(::SiteType"S=3/2";
   return 4
 end
 
+ITensors.state(::StateName"UpUp", ::SiteType"S=3/2") = [1.0, 0, 0, 0]
+ITensors.state(::StateName"UpDn", ::SiteType"S=3/2") = [0, 1.0, 0, 0]
+ITensors.state(::StateName"DnUp", ::SiteType"S=3/2") = [0, 0, 1.0, 0]
+ITensors.state(::StateName"DnDn", ::SiteType"S=3/2") = [0, 0, 0, 1.0]
+
 ITensors.op(::OpName"S1z",::SiteType"S=3/2") =
   [+1/2   0    0    0
      0  +1/2   0    0 
@@ -83,8 +88,8 @@ ITensors.op(::OpName"S1z",::SiteType"S=3/2") =
 ITensors.op(::OpName"S2z",::SiteType"S=3/2") =
   [+1/2   0    0    0
    0  -1/2   0    0 
-   0    0  -1/2   0
-   0    0    0  +1/2]
+   0    0  +1/2   0
+   0    0    0  -1/2]
 
 ITensors.op(::OpName"S1+",::SiteType"S=3/2") =
   [0   0  1  0
@@ -112,8 +117,8 @@ ITensors.op(::OpName"S2-",::SiteType"S=3/2") =
 ITensors.op(::OpName"rung",::SiteType"S=3/2") =
    [1/4   0     0     0
     0    -1/4   1/2   0
-    0     1/2   1/4   0
-    0     0     0    -1/4]
+    0     1/2   -1/4   0
+    0     0     0    1/4]
 ITensors.op(::OpName"Id",::SiteType"S=3/2") =
   [1   0  0   0
    0   1  0   0
@@ -196,7 +201,7 @@ function fourth_order_trotter_gates(L, sites, δt, J1, J2, real_evolution)
   return vcat(A1,B1,A2,B2,A3,B3,A3,B2,A2,B1,A1)
 end
 
-function main(; L=128, cutoff=1E-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=0.0)
+function main(; L=128, cutoff=1E-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=0.0)
   # Make purification gates
   # im_gates = fourth_order_trotter_gates(L, s, -im * δτ, J2, false)
 
@@ -211,6 +216,7 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   c = L - 1 # center site
 
   filename = "/pscratch/sd/k/kwang98/KPZ/tebd_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  # filename = "tebd_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
   if (isfile(filename))
     F = h5open(filename,"r")
     times = read(F, "times")
@@ -228,7 +234,7 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     real_gates = fourth_order_trotter_gates(L, sites, δt, J1, J2, true)
     GC.gc()
   else
-    sites = siteinds("S=3/2", 2 * L; conserve_qns=false)
+    sites = siteinds("S=3/2", 2 * L; conserve_qns=true)
 
     # Initial state is infinite-temperature mixed state (purification)
     ψ = inf_temp_mps(sites)
@@ -249,7 +255,7 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
 
   for t in start_time:δt:ttotal
-    tick()
+    # tick()
     println(maxlinkdim(ψ))
     println(maxlinkdim(ψ2))
 
@@ -283,14 +289,14 @@ function main(; L=128, cutoff=1E-16, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
     t≈ttotal && break
 
-    ψ = apply(real_gates, ψ; cutoff, maxdim)
+    @time ψ = apply(real_gates, ψ; cutoff, maxdim)
     GC.gc()
     # normalize!(ψ)
-    ψ2 = apply(real_gates, ψ2; cutoff, maxdim)
+    @time ψ2 = apply(real_gates, ψ2; cutoff, maxdim)
     GC.gc()
     # normalize!(ψ2)
 
-    tock()
+    # tock()
   end
 
   # plt.loglog(times, abs.(corrs))

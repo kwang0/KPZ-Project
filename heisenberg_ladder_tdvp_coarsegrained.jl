@@ -18,57 +18,13 @@ function ITensors.measure!(o::SizeObserver; bond, sweep, half_sweep, psi, kwargs
   end
 end
 
-function heisenberg(L, J2, real_evolution)
-  os = OpSum()
-
-  # Adding J1 = 1 terms in ladder
-  for j in 1:2:(4*L - 5)
-    os += "Sz", j, "Sz", j + 4
-    os += 0.5, "S+", j, "S-", j + 4
-    os += 0.5, "S-", j, "S+", j + 4
-
-    if (real_evolution)
-      # Apply disentangler exp(iHt) on ancilla sites
-      os += -1, "Sz", j + 1, "Sz", j + 5
-      os += -0.5, "S+", j + 1, "S-", j + 5
-      os += -0.5, "S-", j + 1, "S+", j + 5
-    end
-  end
-
-  # Adding J2 rung terms in ladder
-  for j in 1:4:(4*L - 3)
-    os += J2, "Sz", j, "Sz", j + 2
-    os += 0.5*J2, "S+", j, "S-", j + 2
-    os += 0.5*J2, "S-", j, "S+", j + 2
-
-    if (real_evolution)
-      # Apply disentangler exp(iHt) on ancilla sites
-      os += -1*J2, "Sz", j + 1, "Sz", j + 3
-      os += -0.5*J2, "S+", j + 1, "S-", j + 3
-      os += -0.5*J2, "S-", j + 1, "S+", j + 3
-    end
-  end
-
-  return os
-end
-
-# function heisenberg(L)
-#   os = OpSum()
-#   for j in 1:(L - 1)
-#     os += "Sz", 2*j - 1, "Sz", 2*j + 1
-#     os += 0.5, "S+", 2*j - 1, "S-", 2*j + 1
-#     os += 0.5, "S-", 2*j - 1, "S+", 2*j + 1
-#   end
-#   return os
-# end
-
 function inf_temp_mps(sites)
   num_sites = length(sites)
   if (num_sites % 2 != 0)
     throw(DomainError(num_sites,"Expects even number of sites for ancilla-physical singlets."))
   else
-    state = [isodd(n) ? "Up" : "Dn" for n=1:num_sites]
-    ψ = MPS(sites, state) # Initialize as Neel state to get correct QNs between singlets
+    state = ["UpDn" for n=1:num_sites]
+    ψ = MPS(sites, state)
     for j = 1:2:num_sites-1
       s1 = sites[j]
       s2 = sites[j+1]
@@ -77,8 +33,10 @@ function inf_temp_mps(sites)
         rightlink = commonind(ψ[j+1],ψ[j+2])
         A = ITensor(ComplexF64, s1, s2, rightlink)
 
-        A[s1=>1, s2=>2, rightlink => 1] = 1/sqrt(2)
-        A[s1=>2, s2=>1, rightlink => 1] = -1/sqrt(2)
+        A[s1=>1, s2=>4, rightlink => 1] = 1/2
+        A[s1=>4, s2=>1, rightlink => 1] = 1/2
+        A[s1=>2, s2=>3, rightlink => 1] = 1/2
+        A[s1=>3, s2=>2, rightlink => 1] = 1/2
 
         U,S,V = svd(A, (s1), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -88,8 +46,10 @@ function inf_temp_mps(sites)
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
         A = ITensor(ComplexF64, s1, s2, leftlink)
 
-        A[s1 => 1,s2 => 2, leftlink => 1] = 1/sqrt(2)
-        A[s1 => 2,s2 => 1, leftlink => 1] = -1/sqrt(2)
+        A[s1=>1, s2=>4, leftlink => 1] = 1/2
+        A[s1=>4, s2=>1, leftlink => 1] = 1/2
+        A[s1=>2, s2=>3, leftlink => 1] = 1/2
+        A[s1=>3, s2=>2, leftlink => 1] = 1/2
 
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -101,8 +61,10 @@ function inf_temp_mps(sites)
     
         A = ITensor(ComplexF64, s1, s2, rightlink, leftlink)
 
-        A[s1 => 1,s2 => 2, rightlink=>1, leftlink =>1] = 1/sqrt(2)
-        A[s1 => 2,s2 => 1, rightlink=>1, leftlink =>1] = -1/sqrt(2)
+        A[s1=>1, s2=>4, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>4, s2=>1, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>2, s2=>3, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>3, s2=>2, rightlink=>1, leftlink => 1] = 1/2
 
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -114,8 +76,107 @@ function inf_temp_mps(sites)
   end
 end
 
+# Representation of two spin-1/2's coarse-grained onto one spin-3/2 Hilbert space
+# Convention is (|up,up>, |up,down>, |down,up>, |down,down>)
+function ITensors.space(::SiteType"S=3/2";
+  conserve_qns=false)
+  if conserve_qns
+    return [QN("Sz",1)=>1,QN("Sz",0)=>2,QN("Sz",-1)=>1]
+  end
+  return 4
+end
+
+ITensors.state(::StateName"UpUp", ::SiteType"S=3/2") = [1.0, 0, 0, 0]
+ITensors.state(::StateName"UpDn", ::SiteType"S=3/2") = [0, 1.0, 0, 0]
+ITensors.state(::StateName"DnUp", ::SiteType"S=3/2") = [0, 0, 1.0, 0]
+ITensors.state(::StateName"DnDn", ::SiteType"S=3/2") = [0, 0, 0, 1.0]
+
+ITensors.op(::OpName"S1z",::SiteType"S=3/2") =
+  [+1/2   0    0    0
+     0  +1/2   0    0 
+     0    0  -1/2   0
+     0    0    0  -1/2]
+     
+ITensors.op(::OpName"S2z",::SiteType"S=3/2") =
+  [+1/2   0    0    0
+   0  -1/2   0    0 
+   0    0  +1/2   0
+   0    0    0  -1/2]
+
+ITensors.op(::OpName"S1+",::SiteType"S=3/2") =
+  [0   0  1  0
+   0   0  0  1
+   0   0  0  0
+   0   0  0  0] 
+
+ITensors.op(::OpName"S2+",::SiteType"S=3/2") =
+  [0   1  0  0
+   0   0  0  0
+   0   0  0  1
+   0   0  0  0] 
+
+ITensors.op(::OpName"S1-",::SiteType"S=3/2") =
+  [0   0  0   0
+   0   0  0   0
+   1   0  0   0
+   0   1  0  0]
+
+ITensors.op(::OpName"S2-",::SiteType"S=3/2") =
+  [0   0  0   0
+   1   0  0   0
+   0   0  0   0
+   0   0  1  0]
+ITensors.op(::OpName"rung",::SiteType"S=3/2") =
+   [1/4   0     0     0
+    0    -1/4   1/2   0
+    0     1/2   -1/4   0
+    0     0     0    1/4]
+ITensors.op(::OpName"Id",::SiteType"S=3/2") =
+  [1   0  0   0
+   0   1  0   0
+   0   0  1   0
+   0   0  0  1]
+
+function heisenberg(L, J2, real_evolution)
+  os = OpSum()
+
+  # Adding J1 = 1 terms in ladder
+  for j in 1:2:(2*L - 3)
+    os += "S1z", j, "S1z", j + 2
+    os += 0.5, "S1+", j, "S1-", j + 2
+    os += 0.5, "S1-", j, "S1+", j + 2
+
+    os += "S2z", j, "S2z", j + 2
+    os += 0.5, "S2+", j, "S2-", j + 2
+    os += 0.5, "S2-", j, "S2+", j + 2
+
+    if (real_evolution)
+      # Apply disentangler exp(iHt) on ancilla sites
+      os += -1, "S1z", j + 1, "S1z", j + 3
+      os += -0.5, "S1+", j + 1, "S1-", j + 3
+      os += -0.5, "S1-", j + 1, "S1+", j + 3
+
+      os += -1, "S2z", j + 1, "S2z", j + 3
+      os += -0.5, "S2+", j + 1, "S2-", j + 3
+      os += -0.5, "S2-", j + 1, "S2+", j + 3
+    end
+  end
+
+  # Adding J2 rung terms in ladder
+  for j in 1:2:(2*L - 1)
+    os += J2, "rung", j
+
+    if (real_evolution)
+      # Apply disentangler exp(iHt) on ancilla sites
+      os += -1*J2, "rung", j + 1
+    end
+  end
+
+  return os
+end
+
 function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
-  sites = siteinds("S=1/2", 4 * L; conserve_qns=true)
+  sites = siteinds("S=3/2", 2 * L; conserve_qns=true)
   H_imag = MPO(heisenberg(L, J2, false), sites)
   H_real = MPO(heisenberg(L, J2, true), sites)
 
@@ -137,15 +198,15 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     )
   end
 
-  c = 4 * div(L, 2) - 3 # center site
-  Sz_center = op("Sz",sites[c])
+  c = L - 1 # center site
+  Sz_center = op("S1z",sites[c])
   orthogonalize!(ψ, c)
   ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_alwaysextend.h5"
-  # filename = "tdvp_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  # filename = "tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
@@ -159,7 +220,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     close(F)
 
     sites = siteinds(ψ)
-    Sz_center = op("Sz",sites[c])
+    Sz_center = op("S1z",sites[c])
     H_real = MPO(heisenberg(L, J2, true), sites)
   else
     times = Float64[]
@@ -172,10 +233,13 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   obs = SizeObserver()
   for t in start_time:δt:ttotal
     corr = ComplexF64[]
-    for i in 1:2:(4*L - 1)
+    for i in 1:2:(2*L - 1)
       orthogonalize!(ψ, i)
       orthogonalize!(ψ2, i)
-      push!(corr, inner(apply(2 * op("Sz",sites[i]), ψ; cutoff, maxdim), ψ2))
+      S1z = 2 * op("S1z",sites[i])
+      S2z = 2 * op("S2z",sites[i])
+      push!(corr, inner(apply(S1z, ψ; cutoff, maxdim), ψ2))
+      push!(corr, inner(apply(S2z, ψ; cutoff, maxdim), ψ2))
     end
     orthogonalize!(ψ2, c)
 
@@ -200,7 +264,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
     # ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
     # if (maxlinkdim(ψ2) < 100)
-    @time ψ2 = basis_extend(ψ2, H_real; cutoff, extension_krylovdim=2)
+    # @time ψ2 = basis_extend(ψ2, H_real; cutoff, extension_krylovdim=2)
     # end
 
     ψ = tdvp(H_real, -im * δt, ψ;
@@ -225,7 +289,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     GC.gc()
   end
 
-  # plt.loglog(times, abs.(corrs))
+  # plt.loglog(times, abs.(corrs[L-1,:]))
   # plt.xlabel("t")
   # plt.ylabel("|C(T,x=0,t)|")
   # plt.show()

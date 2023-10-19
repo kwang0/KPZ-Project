@@ -1,12 +1,12 @@
 using MKL
 using ITensors
 using ITensorTDVP
+using ITensorGPU
 using Printf
 using PyPlot
 using HDF5
 using LinearAlgebra
 using TickTock
-include("basis_extend.jl")
 
 mutable struct SizeObserver <: AbstractObserver
 end
@@ -178,12 +178,12 @@ end
 
 function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
   tick()
-  sites = siteinds("S=3/2", 2 * L; conserve_qns=true)
-  H_imag = MPO(heisenberg(L, J2, false), sites)
-  H_real = MPO(heisenberg(L, J2, true), sites)
+  sites = siteinds("S=3/2", 2 * L; conserve_qns=false)
+  H_imag = cuMPO(MPO(heisenberg(L, J2, false), sites))
+  H_real = cuMPO(MPO(heisenberg(L, J2, true), sites))
 
   # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
-  ψ = inf_temp_mps(sites)
+  ψ = cuMPS(inf_temp_mps(sites))
   # ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
 
   # Cool down to inverse temperature 
@@ -201,29 +201,29 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   end
 
   c = L - 1 # center site
-  Sz_center = op("S1z",sites[c])
+  Sz_center = cuITensor(op("S1z",sites[c]))
   orthogonalize!(ψ, c)
   ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
-  # filename = "tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  # filename = "tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
     times = read(F, "times")
     corrs = read(F, "corrs")
-    ψ = read(F, "psi", MPS)
-    ψ2 = read(F, "psi2", MPS)
+    ψ = cuMPS(read(F, "psi", MPS))
+    ψ2 = cuMPS(read(F, "psi2", MPS))
     ψ_norms = read(F, "psi_norms")
     ψ2_norms = read(F, "psi2_norms")
     start_time = last(times)
     close(F)
 
     sites = siteinds(ψ)
-    Sz_center = op("S1z",sites[c])
-    H_real = MPO(heisenberg(L, J2, true), sites)
+    Sz_center = cuITensor(op("S1z",sites[c]))
+    H_real = cuMPO(MPO(heisenberg(L, J2, true), sites))
   else
     times = Float64[]
     corrs = []
@@ -238,8 +238,8 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     for i in 1:2:(2*L - 1)
       orthogonalize!(ψ, i)
       orthogonalize!(ψ2, i)
-      S1z = 2 * op("S1z",sites[i])
-      S2z = 2 * op("S2z",sites[i])
+      S1z = cuITensor(2 * op("S1z",sites[i]))
+      S2z = cuITensor(2 * op("S2z",sites[i]))
       push!(corr, inner(apply(S1z, ψ; cutoff, maxdim), ψ2))
       push!(corr, inner(apply(S2z, ψ; cutoff, maxdim), ψ2))
     end
@@ -256,8 +256,8 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     F = h5open(filename,"w")
     F["times"] = times
     F["corrs"] = corrs
-    F["psi"] = ψ
-    F["psi2"] = ψ2
+    F["psi"] = cpu(ψ)
+    F["psi2"] = cpu(ψ2)
     F["psi_norms"] = ψ_norms
     F["psi2_norms"] = ψ2_norms
     close(F)

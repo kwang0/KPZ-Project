@@ -15,10 +15,11 @@ function plot_csv(f::String)
 end
 
 # Plot my own data
-function plot_hdf(f::String, norm::Integer=1)
+function plot_hdf(f::String, norm::Float64=1.0)
     F = h5open(f,"r")
     times = read(F, "times")
     corrs = norm * abs.(read(F, "corrs"))
+    # corrs ./= abs.(sum(corrs, dims=1))
     if length(size(corrs)) == 2
         corrs = corrs[size(corrs)[1]÷2-1, :]
     end

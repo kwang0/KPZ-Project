@@ -10,6 +10,6 @@
 export SLURM_CPU_BIND="cores"
 export JULIA_CUDA_SOFT_MEMORY_LIMIT=50%
 
-julia $1 $2 $3 $4 $5 $6 > logs_jl/tdvp_gpu_L${2}_chi${3}_beta${4}_dt${5}_Jprime${6}_diskwrite.txt
+julia $1 $2 $3 $4 $5 $6 > logs_jl/tdvp_coarsegrained_gpu_L${2}_chi${3}_beta${4}_dt${5}_Jprime${6}.txt
 
 exit 0

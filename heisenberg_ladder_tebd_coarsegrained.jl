@@ -202,6 +202,7 @@ function fourth_order_trotter_gates(L, sites, δt, J1, J2, real_evolution)
 end
 
 function main(; L=128, cutoff=1E-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=0.0)
+  tick()
   # Make purification gates
   # im_gates = fourth_order_trotter_gates(L, s, -im * δτ, J2, false)
 
@@ -288,6 +289,11 @@ function main(; L=128, cutoff=1E-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     close(F)
 
     t≈ttotal && break
+    
+    # Stop simulations before HPC limit to ensure no corruption of data writing
+    if peektimer() > (23.5 * 60 * 60)
+      break
+    end
 
     @time ψ = apply(real_gates, ψ; cutoff, maxdim)
     GC.gc()

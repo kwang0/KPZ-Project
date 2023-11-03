@@ -48,3 +48,16 @@ function plot_fit(f::String, window_min, window_max)
     plt.loglog(times, exp.(m .* (log.(times)) .+ b), label="z = $(-1.0/m)")
     plt.legend()
 end
+
+function plot_fit(f::String)
+    t = 10.0
+    F = h5open(f,"r")
+    times = read(F, "times")
+    close(F)
+
+    scale = 2
+    while (t < times[end])
+        plot_fit(f, t, scale * t)
+        t *= scale
+    end
+end

@@ -305,7 +305,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 end
 
 ITensors.Strided.set_num_threads(1)
-BLAS.set_num_threads(256)
+BLAS.set_num_threads(8)
 # ITensors.enable_threaded_blocksparse(true)
 
 L = parse(Int64, ARGS[1])

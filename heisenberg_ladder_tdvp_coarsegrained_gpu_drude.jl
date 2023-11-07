@@ -1,25 +1,16 @@
 using MKL
 using ITensors
+using NDTensors
 using ITensorTDVP
+using CUDA
+# using ITensorGPU
 using Printf
 using PyPlot
 using HDF5
 using LinearAlgebra
 using TickTock
-include("basis_extend.jl")
 
 mutable struct SizeObserver <: AbstractObserver
-end
-
-entropy_von_neumann(t::ITensor) = entropy_von_neumann(tensor(NDTensors.cpu(t)))
-
-function entropy_von_neumann(t::Tensor)
-   SvN = eltype(t)
-    for n=1:dim(S, 1)
-        p = S[n,n]^2
-        SvN -= p * log(p)
-    end
-    return SvN
 end
 
 function ITensors.measure!(o::SizeObserver; bond, sweep, half_sweep, psi, kwargs...)
@@ -187,14 +178,29 @@ function heisenberg(L, J2, real_evolution)
   return os
 end
 
+function current(L)
+  os = OpSum()
+
+  # Adding J1 = 1 terms in ladder
+  for j in 1:2:(2*L - 3)
+    os += 0.5 * im, "S1+", j, "S1-", j + 2
+    os += -0.5 * im, "S1-", j, "S1+", j + 2
+
+    os += 0.5 * im, "S2+", j, "S2-", j + 2
+    os += -0.5 * im, "S2-", j, "S2+", j + 2
+  end
+
+  return os
+end
+
 function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
   tick()
-  sites = siteinds("S=3/2", 2 * L; conserve_qns=true)
-  H_imag = MPO(heisenberg(L, J2, false), sites)
-  H_real = MPO(heisenberg(L, J2, true), sites)
+  sites = siteinds("S=3/2", 2 * L; conserve_qns=false)
+  H_imag = NDTensors.cu(MPO(heisenberg(L, J2, false), sites))
+  H_real = NDTensors.cu(MPO(heisenberg(L, J2, true), sites))
 
   # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
-  ψ = inf_temp_mps(sites)
+  ψ = NDTensors.cu(inf_temp_mps(sites))
   # ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
 
   # Cool down to inverse temperature 
@@ -211,33 +217,31 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     )
   end
 
-  c = L - 1 # center site
-  Sz_center = op("S1z",sites[c])
-  orthogonalize!(ψ, c)
-  ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
+  j = NDTensors.cu(MPO(current(L), sites))
+  ψ2 = apply(j, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
-  # filename = "tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_drude.h5"
+  # filename = "tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
     times = read(F, "times")
     corrs = read(F, "corrs")
-    ψ = read(F, "psi", MPS)
-    ψ2 = read(F, "psi2", MPS)
+    ψ = NDTensors.cu(read(F, "psi", MPS))
+    ψ2 = NDTensors.cu(read(F, "psi2", MPS))
     ψ_norms = read(F, "psi_norms")
     ψ2_norms = read(F, "psi2_norms")
     start_time = last(times)
     close(F)
 
     sites = siteinds(ψ)
-    Sz_center = op("S1z",sites[c])
-    H_real = MPO(heisenberg(L, J2, true), sites)
+    j = NDTensors.cu(MPO(current(L), sites))
+    H_real = NDTensors.cu(MPO(heisenberg(L, J2, true), sites))
   else
     times = Float64[]
-    corrs = []
+    corrs = ComplexF64[]
     ψ_norms = Float64[]
     ψ2_norms = Float64[]
     start_time = 0.0
@@ -245,21 +249,11 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
   obs = SizeObserver()
   for t in start_time:δt:ttotal
-    corr = ComplexF64[]
-    for i in 1:2:(2*L - 1)
-      orthogonalize!(ψ, i)
-      orthogonalize!(ψ2, i)
-      S1z = 2 * op("S1z",sites[i])
-      S2z = 2 * op("S2z",sites[i])
-      push!(corr, inner(apply(S1z, ψ; cutoff, maxdim), ψ2))
-      push!(corr, inner(apply(S2z, ψ; cutoff, maxdim), ψ2))
-    end
-    orthogonalize!(ψ2, c)
+    push!(corrs, inner(apply(j, ψ; cutoff, maxdim), ψ2))
 
     println("Time = $t")
     flush(stdout)
     push!(times, t)
-    t == 0.0 ? corrs = corr : corrs = hcat(corrs, corr)
     push!(ψ_norms, norm(ψ))
     push!(ψ2_norms, norm(ψ2))
 
@@ -267,8 +261,8 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     F = h5open(filename,"w")
     F["times"] = times
     F["corrs"] = corrs
-    F["psi"] = ψ
-    F["psi2"] = ψ2
+    F["psi"] = ITensors.cpu(ψ)
+    F["psi2"] = ITensors.cpu(ψ2)
     F["psi_norms"] = ψ_norms
     F["psi2_norms"] = ψ2_norms
     close(F)
@@ -316,7 +310,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 end
 
 ITensors.Strided.set_num_threads(1)
-BLAS.set_num_threads(8)
+BLAS.set_num_threads(1)
 # ITensors.enable_threaded_blocksparse(true)
 
 L = parse(Int64, ARGS[1])

@@ -175,7 +175,7 @@ end
 function trotter_sweep(ψ, L, sites, start, gates, cut, m, alg)
   # Initial edge case
   if (start == 5)
-    orthogonalize!(ψ, 1; cutoff=cut, maxdim=m)
+    orthogonalize!(ψ, 1)
     three_site = ψ[1]*ψ[2]*ψ[3]
     three_site = apply(gates[1], three_site)
     U,S,V = svd(three_site, (sites[1]), cutoff=cut, maxdim=m, alg=alg, lefttags="Link,l=1")
@@ -197,7 +197,7 @@ function trotter_sweep(ψ, L, sites, start, gates, cut, m, alg)
   last = start + 2*L - 8
 
   for i in start:4:last
-    orthogonalize!(ψ, i; cutoff=cut, maxdim=m)
+    orthogonalize!(ψ, i)
     three_site = ψ[i] * ψ[i+1] * ψ[i+2]
     three_site = apply(gates[i], three_site)
     leftlink = dag(commonind(ψ[i-1], three_site))

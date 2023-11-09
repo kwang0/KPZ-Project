@@ -15,14 +15,23 @@ function plot_csv(f::String)
 end
 
 # Plot my own data
-function plot_hdf(f::String, norm::Float64=1.0)
+function plot_hdf(f::String; norm::Float64=1.0, type="onesite")
     F = h5open(f,"r")
     times = read(F, "times")
     corrs = norm * abs.(read(F, "corrs"))
     # corrs ./= abs.(sum(corrs, dims=1))
+        
     if length(size(corrs)) == 2
-        corrs = corrs[size(corrs)[1]÷2-1, :]
+        if type == "onesite"
+            corrs = corrs[size(corrs)[1]÷2-1, :]
+        elseif type == "twosite"
+            corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :]
+        elseif type == "drude"
+            corrs = sum(corrs, dims=1)
+        end
     end
+    
+        
     # ψ_norms = read(F, "psi_norms")
     # ψ2_norms = read(F, "psi2_norms")
     close(F)

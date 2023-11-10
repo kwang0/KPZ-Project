@@ -18,7 +18,7 @@ end
 function plot_hdf(f::String; norm::Float64=1.0, type="onesite")
     F = h5open(f,"r")
     times = read(F, "times")
-    corrs = norm * abs.(read(F, "corrs"))
+    corrs = norm * real(read(F, "corrs"))
     # corrs ./= abs.(sum(corrs, dims=1))
         
     if length(size(corrs)) == 2
@@ -27,7 +27,7 @@ function plot_hdf(f::String; norm::Float64=1.0, type="onesite")
         elseif type == "twosite"
             corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :]
         elseif type == "drude"
-            corrs = sum(corrs, dims=1)
+            corrs = sum(corrs, dims=1)[:]
         end
     end
     
@@ -41,12 +41,18 @@ function plot_hdf(f::String; norm::Float64=1.0, type="onesite")
     plt.legend()
 end
 
-function plot_fit(f::String, window_min, window_max)
+function plot_fit(f::String, window_min, window_max; type="onesite")
     F = h5open(f,"r")
     times = read(F, "times")
     corrs = abs.(read(F, "corrs"))
     if length(size(corrs)) == 2
-        corrs = corrs[size(corrs)[1]÷2-1, :]
+        if type == "onesite"
+            corrs = corrs[size(corrs)[1]÷2-1, :]
+        elseif type == "twosite"
+            corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :]
+        elseif type == "drude"
+            corrs = sum(corrs, dims=1)[:]
+        end
     end
     close(F)
     corrs = corrs[(times .> window_min) .& (times .< window_max)]

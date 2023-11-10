@@ -203,13 +203,13 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   end
 
   c = L - 1 # center site
-  Sz_center = NDTensors.cu(op("S1z",sites[c]) + op("S2z",sites[c]))
+  Sz_center = NDTensors.cu(op("S1z",sites[c]))
   orthogonalize!(ψ, c)
   ψ2 = apply(2 * Sz_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_twosite.h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
   # filename = "tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
 
   if (isfile(filename))
@@ -224,7 +224,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     close(F)
 
     sites = siteinds(ψ)
-    Sz_center = NDTensors.cu(op("S1z",sites[c]) + op("S2z",sites[c]))
+    Sz_center = NDTensors.cu(op("S1z",sites[c]))
     H_real = NDTensors.cu(MPO(heisenberg(L, J2, true), sites))
   else
     times = Float64[]

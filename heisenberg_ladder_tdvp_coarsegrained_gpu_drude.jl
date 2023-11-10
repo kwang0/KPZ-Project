@@ -178,17 +178,14 @@ function heisenberg(L, J2, real_evolution)
   return os
 end
 
-function current(L)
+function current(j)
   os = OpSum()
 
-  # Adding J1 = 1 terms in ladder
-  for j in 1:2:(2*L - 3)
-    os += 0.5 * im, "S1+", j, "S1-", j + 2
-    os += -0.5 * im, "S1-", j, "S1+", j + 2
+  os += 0.5 * im, "S1+", j, "S1-", j + 2
+  os += -0.5 * im, "S1-", j, "S1+", j + 2
 
-    os += 0.5 * im, "S2+", j, "S2-", j + 2
-    os += -0.5 * im, "S2-", j, "S2+", j + 2
-  end
+  os += 0.5 * im, "S2+", j, "S2-", j + 2
+  os += -0.5 * im, "S2-", j, "S2+", j + 2
 
   return os
 end
@@ -217,8 +214,10 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     )
   end
 
-  j = NDTensors.cu(MPO(current(L), sites))
-  ψ2 = apply(j, ψ; cutoff, maxdim)
+  c = L - 1 # center site
+  j_center = NDTensors.cu(MPO(current(c), sites))
+  orthogonalize!(ψ, c)
+  ψ2 = apply(j_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
@@ -237,11 +236,11 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     close(F)
 
     sites = siteinds(ψ)
-    j = NDTensors.cu(MPO(current(L), sites))
+    j = NDTensors.cu(MPO(current(c), sites))
     H_real = NDTensors.cu(MPO(heisenberg(L, J2, true), sites))
   else
     times = Float64[]
-    corrs = ComplexF64[]
+    corrs = []
     ψ_norms = Float64[]
     ψ2_norms = Float64[]
     start_time = 0.0
@@ -249,11 +248,19 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
   obs = SizeObserver()
   for t in start_time:δt:ttotal
-    push!(corrs, inner(apply(j, ψ; cutoff, maxdim), ψ2))
+    corr = ComplexF64[]
+    for i in 1:2:(2*L - 3)
+      orthogonalize!(ψ, i)
+      orthogonalize!(ψ2, i)
+      j = NDTensors.cu(MPO(current(i), sites))
+      push!(corr, inner(apply(j, ψ; cutoff, maxdim), ψ2))
+    end
+    orthogonalize!(ψ2, c)
 
     println("Time = $t")
     flush(stdout)
     push!(times, t)
+    t == 0.0 ? corrs = corr : corrs = hcat(corrs, corr)
     push!(ψ_norms, norm(ψ))
     push!(ψ2_norms, norm(ψ2))
 

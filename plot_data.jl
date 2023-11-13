@@ -15,27 +15,27 @@ function plot_csv(f::String)
 end
 
 # Plot my own data
-function plot_hdf(f::String; norm::Float64=1.0, type="onesite")
+function plot_hdf(f::String; norm::Float64=1.0, type="onesite", normalize=false)
     F = h5open(f,"r")
     times = read(F, "times")
-    corrs = norm * real(read(F, "corrs"))
+    corrs = norm * read(F, "corrs")
     # corrs ./= abs.(sum(corrs, dims=1))
         
     if length(size(corrs)) == 2
         if type == "onesite"
-            corrs = corrs[size(corrs)[1]÷2-1, :]
+            corrs = abs.(corrs[size(corrs)[1]÷2-1, :])
         elseif type == "twosite"
-            corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :]
+            corrs = abs.(corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :])
         elseif type == "drude"
-            corrs = sum(corrs, dims=1)[:]
+            corrs = abs.(sum(corrs, dims=1)[:])
         end
     end
     
         
     # ψ_norms = read(F, "psi_norms")
-    # ψ2_norms = read(F, "psi2_norms")
+    ψ2_norms = read(F, "psi2_norms")
     close(F)
-    # corrs ./= ψ2_norms
+    normalize && (corrs ./= ψ2_norms)
     # corrs = norm * imag(read(F, "corrs"))
     plt.loglog(times, corrs, label=f)
     plt.legend()
@@ -64,15 +64,15 @@ function plot_fit(f::String, window_min, window_max; type="onesite")
     plt.legend()
 end
 
-function plot_fit(f::String)
+function plot_fit(f::String; type="onesite")
     t = 10.0
     F = h5open(f,"r")
     times = read(F, "times")
     close(F)
 
-    scale = 2
+    scale = 1.5
     while (t < times[end])
-        plot_fit(f, t, scale * t)
+        plot_fit(f, t, scale * t; type=type)
         t *= scale
     end
 end

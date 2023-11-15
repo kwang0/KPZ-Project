@@ -10,12 +10,12 @@ function plot_csv(f::String)
     times = df.Column1
     corrs = 4 * abs.(df.Column2 + df.Column3*im)
     # corrs = 4 * df.Column3
-    plt.loglog(times, corrs, label=f)
+    plt.loglog(times, corrs .* (times .^ (2/3)) , label=f)
     plt.legend()
 end
 
 # Plot my own data
-function plot_hdf(f::String; norm::Float64=1.0, type="onesite")
+function plot_hdf(f::String; norm::Float64=1.0, type="twosite")
     F = h5open(f,"r")
     times = read(F, "times")
     corrs = norm * real(read(F, "corrs"))
@@ -37,11 +37,11 @@ function plot_hdf(f::String; norm::Float64=1.0, type="onesite")
     close(F)
     # corrs ./= ψ2_norms
     # corrs = norm * imag(read(F, "corrs"))
-    plt.loglog(times, corrs, label=f)
+    plt.loglog(times, corrs .* (times .^ (2/3)) , label=f)
     plt.legend()
 end
 
-function plot_fit(f::String, window_min, window_max; type="onesite")
+function plot_fit(f::String, window_min, window_max; type="twosite")
     F = h5open(f,"r")
     times = read(F, "times")
     corrs = abs.(read(F, "corrs"))

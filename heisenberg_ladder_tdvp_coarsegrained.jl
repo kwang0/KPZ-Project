@@ -149,49 +149,49 @@ ITensors.op(::OpName"Id",::SiteType"S=3/2") =
    0   0  1   0
    0   0  0  1]
 
-function heisenberg(L, J2, real_evolution)
-  os = OpSum()
-
-  # Adding J1 = 1 terms in ladder
-  for j in 1:2:(2*L - 3)
-    os += "S1z", j, "S1z", j + 2
-    os += 0.5, "S1+", j, "S1-", j + 2
-    os += 0.5, "S1-", j, "S1+", j + 2
-
-    os += "S2z", j, "S2z", j + 2
-    os += 0.5, "S2+", j, "S2-", j + 2
-    os += 0.5, "S2-", j, "S2+", j + 2
-
-    if (real_evolution)
-      # Apply disentangler exp(iHt) on ancilla sites
-      os += -1, "S1z", j + 1, "S1z", j + 3
-      os += -0.5, "S1+", j + 1, "S1-", j + 3
-      os += -0.5, "S1-", j + 1, "S1+", j + 3
-
-      os += -1, "S2z", j + 1, "S2z", j + 3
-      os += -0.5, "S2+", j + 1, "S2-", j + 3
-      os += -0.5, "S2-", j + 1, "S2+", j + 3
+   function heisenberg(L, J2, Delta, real_evolution)
+    os = OpSum()
+  
+    # Adding J1 = 1 terms in ladder
+    for j in 1:2:(2*L - 3)
+      os += Delta, "S1z", j, "S1z", j + 2
+      os += 0.5, "S1+", j, "S1-", j + 2
+      os += 0.5, "S1-", j, "S1+", j + 2
+  
+      os += Delta, "S2z", j, "S2z", j + 2
+      os += 0.5, "S2+", j, "S2-", j + 2
+      os += 0.5, "S2-", j, "S2+", j + 2
+  
+      if (real_evolution)
+        # Apply disentangler exp(iHt) on ancilla sites
+        os += -1 * Delta, "S1z", j + 1, "S1z", j + 3
+        os += -0.5, "S1+", j + 1, "S1-", j + 3
+        os += -0.5, "S1-", j + 1, "S1+", j + 3
+  
+        os += -1 * Delta, "S2z", j + 1, "S2z", j + 3
+        os += -0.5, "S2+", j + 1, "S2-", j + 3
+        os += -0.5, "S2-", j + 1, "S2+", j + 3
+      end
     end
+  
+    # Adding J2 rung terms in ladder
+    for j in 1:2:(2*L - 1)
+      os += J2, "rung", j
+  
+      if (real_evolution)
+        # Apply disentangler exp(iHt) on ancilla sites
+        os += -1*J2, "rung", j + 1
+      end
+    end
+  
+    return os
   end
 
-  # Adding J2 rung terms in ladder
-  for j in 1:2:(2*L - 1)
-    os += J2, "rung", j
-
-    if (real_evolution)
-      # Apply disentangler exp(iHt) on ancilla sites
-      os += -1*J2, "rung", j + 1
-    end
-  end
-
-  return os
-end
-
-function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
+function main(; L=128, cutoff=1e-6, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0, Delta=1.0)
   tick()
   sites = siteinds("S=3/2", 2 * L; conserve_qns=true)
-  H_imag = MPO(heisenberg(L, J2, false), sites)
-  H_real = MPO(heisenberg(L, J2, true), sites)
+  H_imag = MPO(heisenberg(L, J2, Delta, false), sites)
+  H_real = MPO(heisenberg(L, J2, Delta, true), sites)
 
   # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
   ψ = inf_temp_mps(sites)
@@ -218,7 +218,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   # normalize!(ψ2)
 
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Delta$(Delta).h5"
   # filename = "tdvp_coarsegrained_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
 
   if (isfile(filename))
@@ -234,7 +234,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
     sites = siteinds(ψ)
     Sz_center = op("S1z",sites[c])
-    H_real = MPO(heisenberg(L, J2, true), sites)
+    H_real = MPO(heisenberg(L, J2, Delta, true), sites)
   else
     times = Float64[]
     corrs = []
@@ -324,5 +324,6 @@ maxdim = parse(Int64, ARGS[2])
 β_max = parse(Float64, ARGS[3])
 δt = parse(Float64, ARGS[4])
 J2 = parse(Float64, ARGS[5])
+Delta = parse(Float64, ARGS[6])
 
-main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2)
+main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, Delta=Delta)

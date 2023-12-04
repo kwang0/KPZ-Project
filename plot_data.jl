@@ -20,6 +20,10 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         plot_hdf(ax[1], f, type=type, graph = "twosite")
         plot_hdf(ax[2], f, type=type, graph = "exponent")
         return
+    elseif graph == "both_transfer"
+        plot_hdf(ax[1], f, type=type, graph = "transfer")
+        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer")
+        return
     end
 
     if type == "hdf"
@@ -45,7 +49,8 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         # broadening = (1.0 / (sigma * sqrt(2 * pi))) .* exp.(-(times .- times').^2 ./ (2*sigma^2))
         # corrs = broadening * corrs
 
-        ax.loglog(times, corrs , label=f)
+        ax.loglog(times, corrs .* (times.^(2/3)), label=f)
+        # ax.legend()
     elseif graph == "exponent"
         type == "hdf" && (corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :])
         # alphas = (log.(corrs[2:end]) .- log.(corrs[1:end-1])) ./ (log.(times[2:end]) .- log.(times[1:end-1]))
@@ -85,10 +90,9 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         ax.legend()
     elseif graph == "full"
         # fig, ax = plt.subplots(1)
-        times .= times.^(2/3)
         L = size(corrs,1)
         img = matplotlib[:image][:NonUniformImage](ax, interpolation="nearest", cmap="hot", extent=(1,L,0,times[end]))
-        img.set_data(times, LinRange(1,L,L), log.(corrs))
+        img.set_data(times.^(2/3), LinRange(1,L,L), log.(corrs))
         ax.add_image(img)
         ax.set_xlim(0,times[end])
         ax.set_ylim(1,L)
@@ -133,6 +137,45 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         transfer .= transfer[1] .- transfer
         ax.loglog(times, transfer[:] .* (times .^ (-2/3)), label=f)
         # plt.plot(log.(times), diffusion, label=f)
+        # ax.legend()
+    elseif graph == "exponent_transfer"
+        F = h5open(f,"r")
+        Z1s = real(read(F, "Z1s"))
+        Z2s = real(read(F, "Z2s"))
+        close(F)
+
+        Zs = (Z1s .+ Z2s)
+        c = size(Zs,1)÷2
+        transfer = sum(Z1s[1:c,:],dims=1)
+        transfer .= transfer[1] .- transfer
+
+        alphas = []
+        errors = []
+        ts = []
+        t = 5.0
+        scale = 1.25
+        while (t < times[end] && size(times[times .> t],1) > 30)
+            push!(ts, t)
+            window_min = t
+            window_max = t + 20
+
+            window_transfer = transfer[(times .> window_min) .& (times .< window_max)]
+            window_times = times[(times .> window_min) .& (times .< window_max)]
+            x = log.(window_times)
+            y = log.(window_transfer)
+
+            b, m = linear_fit(x, y)
+            m_err = sqrt(sum((m .* x .+ b .- y).^2) / (sum((x .- (sum(x) / size(x,1))).^2) * (size(x,1)-2)))
+            alpha = 1.0/m
+            alpha_err = m_err/m^2
+
+            push!(alphas, alpha)
+            push!(errors, alpha_err)
+            t *= scale
+        end
+        # ax.scatter(ts, alphas, label=f, s=10.0, marker="x")
+        ax.set_ylim(1,2)
+        ax.errorbar(ts, alphas, yerr=errors, label=f, marker=".")
         ax.legend()
     end
     # end

@@ -81,13 +81,25 @@ function ITensors.op(::OpName"expiSS", ::SiteType"S=3/2", s1::Index, s2::Index; 
   return exp(-im * t * (J1 * (h1 + h2) + J2 * rung))
 end
 
+function current(j)
+  os = OpSum()
+
+  os += 0.5 * im, "S1+", j, "S1-", j + 1
+  os += -0.5 * im, "S1-", j, "S1+", j + 1
+
+  os += 0.5 * im, "S2+", j, "S2-", j + 1
+  os += -0.5 * im, "S2-", j, "S2+", j + 1
+
+  return os
+end
+
 function domain_wall(L, sites, μ)
   ρ = MPO(L)
   for i in 1:L
     if i < div(L,2) + 1
-      ρ[i] = op("Id", sites[i]) + 2 * μ * op("S1z", sites[i])
+      ρ[i] = op("Id", sites[i]) + 2 * μ * op("S1z", sites[i]) + 2 * μ * op("S2z", sites[i])
     else
-      ρ[i] = op("Id", sites[i]) - 2 * μ * op("S1z", sites[i])
+      ρ[i] = op("Id", sites[i]) - 2 * μ * op("S1z", sites[i]) - 2 * μ * op("S2z", sites[i])
     end
     ρ[i] ./= tr(ρ[i])
   end
@@ -124,6 +136,7 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
     times = read(F, "times")
     Z1s = read(F, "Z1s")
     Z2s = read(F, "Z2s")
+    Js = read(F, "Js")
     ρ = read(F, "rho", MPO)
     sites = read(F,"sites",Vector{Index{Vector{Pair{QN, Int64}}}})
     start_time = last(times)
@@ -146,6 +159,7 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
     times = Float64[]
     Z1s = []
     Z2s = []
+    Js = []
     start_time = 0.0
   end
 
@@ -155,12 +169,16 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
 
     Z1 = ComplexF64[]
     Z2 = ComplexF64[]
+    J = ComplexF64[]
     for i in 1:L
       orthogonalize!(ρ, i)
       S1z = 2 * op("S1z",sites[i])
       S2z = 2 * op("S2z",sites[i])
       push!(Z1, tr(apply(S1z, ρ; cutoff, maxdim)))
       push!(Z2, tr(apply(S2z, ρ; cutoff, maxdim)))
+      if i < L
+        push!(J, tr(apply(MPO(current(i), sites), ρ; cutoff, maxdim)))
+      end
     end
     orthogonalize!(ρ, c)
     println("Time = $t")
@@ -168,12 +186,14 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
     push!(times, t)
     t == 0.0 ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
     t == 0.0 ? Z2s = Z2 : Z2s = hcat(Z2s, Z2)
+    t == 0.0 ? Js = J : Js = hcat(Js, J)
 
     # Writing to data file
     F = h5open(filename,"w")
     F["times"] = times
     F["Z1s"] = Z1s
     F["Z2s"] = Z2s
+    F["Js"] = Js
     F["corrs"] = (Z1s[c-1,:] .- Z1s[c,:]) ./ (2 * μ)
     F["rho"] = ρ
     F["sites"] = sites

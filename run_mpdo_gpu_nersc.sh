@@ -2,7 +2,7 @@
 #SBATCH -A m3341_g
 #SBATCH -C gpu&hbm80g
 #SBATCH -q shared
-#SBATCH -t 4:00:00
+#SBATCH -t 24:00:00
 #SBATCH -n 1
 #SBATCH -c 32
 #SBATCH --gpus-per-task=1

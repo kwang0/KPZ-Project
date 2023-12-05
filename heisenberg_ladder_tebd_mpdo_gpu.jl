@@ -1,7 +1,8 @@
 using MKL
 using LinearAlgebra
 using ITensors
-using ITensorGPU
+using NDTensors
+using CUDA
 using Printf
 using PyPlot
 using HDF5
@@ -79,16 +80,28 @@ function ITensors.op(::OpName"expiSS", ::SiteType"S=3/2", s1::Index, s2::Index; 
     op("S2z", s1) * op("S2z", s2)
   rung = op("rung", s1) * op("Id", s2)
   
-  return cuITensor(exp(-im * t * (J1 * (h1 + h2) + J2 * rung)))
+  return NDTensors.cu(exp(-im * t * (J1 * (h1 + h2) + J2 * rung)))
+end
+
+function current(j)
+  os = OpSum()
+
+  os += 0.5 * im, "S1+", j, "S1-", j + 1
+  os += -0.5 * im, "S1-", j, "S1+", j + 1
+
+  os += 0.5 * im, "S2+", j, "S2-", j + 1
+  os += -0.5 * im, "S2-", j, "S2+", j + 1
+
+  return os
 end
 
 function domain_wall(L, sites, μ)
   ρ = MPO(L)
   for i in 1:L
     if i < div(L,2) + 1
-      ρ[i] = op("Id", sites[i]) + 2 * μ * op("S1z", sites[i])
+      ρ[i] = op("Id", sites[i]) + 2 * μ * op("S1z", sites[i]) + 2 * μ * op("S2z", sites[i])
     else
-      ρ[i] = op("Id", sites[i]) - 2 * μ * op("S1z", sites[i])
+      ρ[i] = op("Id", sites[i]) - 2 * μ * op("S1z", sites[i]) - 2 * μ * op("S2z", sites[i])
     end
     ρ[i] ./= tr(ρ[i])
   end
@@ -117,14 +130,15 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
 
   c = div(L,2) + 1 # center site
 
-  # filename = "/pscratch/sd/k/kwang98/KPZ/tebd_mpdo_gpu_L$(L)_chi$(maxdim)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
-  filename = "tebd_mpdo_gpu_L$(L)_chi$(maxdim)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_mpdo_gpu_L$(L)_chi$(maxdim)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
+  # filename = "tebd_mpdo_gpu_L$(L)_chi$(maxdim)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
   if (isfile(filename))
     F = h5open(filename,"r")
     times = read(F, "times")
     Z1s = read(F, "Z1s")
     Z2s = read(F, "Z2s")
-    ρ = cuMPO(read(F, "rho", MPO))
+    Js = read(F, "Js")
+    ρ = NDTensors.cu(read(F, "rho", MPO))
     sites = read(F,"sites",Vector{Index{Int64}})
     start_time = last(times)
     close(F)
@@ -141,12 +155,13 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
     GC.gc()
     
     orthogonalize!(ρ, c)
-    ρ = cuMPO(ρ)
+    ρ = NDTensors.cu(ρ)
     # normalize!(ψ2)
   
     times = Float64[]
     Z1s = []
     Z2s = []
+    Js = []
     start_time = 0.0
   end
 
@@ -156,14 +171,19 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
 
     Z1 = ComplexF64[]
     Z2 = ComplexF64[]
+    J = ComplexF64[]
     println("Copying to cpu to calculate expectation values")
-    @time ρ = cpu(ρ)
+    @time ρ = NDTensors.cpu(ρ)
     for i in 1:L
       orthogonalize!(ρ, i)
       S1z = 2 * op("S1z",sites[i])
       S2z = 2 * op("S2z",sites[i])
       push!(Z1, tr(apply(S1z, ρ; cutoff, maxdim)))
       push!(Z2, tr(apply(S2z, ρ; cutoff, maxdim)))
+      if i < L
+        j = MPO(current(i), sites)
+        push!(J, tr(apply(j, ρ; cutoff, maxdim)))
+      end
     end
     orthogonalize!(ρ, c)
     println("Time = $t")
@@ -171,12 +191,14 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
     push!(times, t)
     t == 0.0 ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
     t == 0.0 ? Z2s = Z2 : Z2s = hcat(Z2s, Z2)
+    t == 0.0 ? Js = J : Js = hcat(Js, J)
 
     # Writing to data file
     F = h5open(filename,"w")
     F["times"] = times
     F["Z1s"] = Z1s
     F["Z2s"] = Z2s
+    F["Js"] = Js
     F["corrs"] = (Z1s[c-1,:] .- Z1s[c,:]) ./ (2 * μ)
     F["rho"] = ρ
     F["sites"] = sites
@@ -185,7 +207,7 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
     t≈ttotal && break
 
     println("Copying back to gpu to apply gates")
-    @time ρ = cuMPO(ρ)
+    @time ρ = NDTensors.cu(ρ)
     println("Applying gates")
     @time ρ = apply(real_gates, ρ; cutoff, maxdim, apply_dag=true)
     GC.gc()
@@ -193,7 +215,7 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
 end
 
 # Set to identity to run on CPU
-gpu = cu
+# gpu = cu
 
 ITensors.Strided.set_num_threads(1)
 BLAS.set_num_threads(1)

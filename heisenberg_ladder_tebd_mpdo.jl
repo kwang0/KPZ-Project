@@ -81,16 +81,14 @@ function ITensors.op(::OpName"expiSS", ::SiteType"S=3/2", s1::Index, s2::Index; 
   return exp(-im * t * (J1 * (h1 + h2) + J2 * rung))
 end
 
-function current(j)
-  os = OpSum()
+function ITensors.op(::OpName"current", ::SiteType"S=3/2", s1::Index, s2::Index)
+  cur = 
+    0.5 * im * op("S1+", s1) * op("S1-", s2) -
+    0.5 * im * op("S1-", s1) * op("S1+", s2) +
+    0.5 * im * op("S2+", s1) * op("S2-", s2) -
+    0.5 * im * op("S2-", s1) * op("S2+", s2)
 
-  os += 0.5 * im, "S1+", j, "S1-", j + 1
-  os += -0.5 * im, "S1-", j, "S1+", j + 1
-
-  os += 0.5 * im, "S2+", j, "S2-", j + 1
-  os += -0.5 * im, "S2-", j, "S2+", j + 1
-
-  return os
+  return cur
 end
 
 function domain_wall(L, sites, μ)
@@ -128,9 +126,9 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
 
   c = div(L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_mpdo_L$(L)_chi$(maxdim)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
+  # filename = "/pscratch/sd/k/kwang98/KPZ/tebd_mpdo_L$(L)_chi$(maxdim)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
   # filename = "/global/scratch/users/kwang98/tebd_mpdo_L$(L)_chi$(maxdim)_dt$(δt)_Jprime$(J2)_mu$(μ)_updated.h5"
-  # filename = "tebd_mpdo_L$(L)_chi$(maxdim)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
+  filename = "tebd_mpdo_L$(L)_chi$(maxdim)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
   if (isfile(filename))
     F = h5open(filename,"r")
     times = read(F, "times")
@@ -170,17 +168,18 @@ function main(; L=128, cutoff=1E-10, δt=0.1, ttotal=100, maxdim=32, J1=1.0, J2=
     Z1 = ComplexF64[]
     Z2 = ComplexF64[]
     J = ComplexF64[]
-    for i in 1:L
-      orthogonalize!(ρ, i)
+    @time for i in 1:L
+      # orthogonalize!(ρ, i)
       S1z = 2 * op("S1z",sites[i])
       S2z = 2 * op("S2z",sites[i])
       push!(Z1, tr(apply(S1z, ρ; cutoff, maxdim)))
       push!(Z2, tr(apply(S2z, ρ; cutoff, maxdim)))
       if i < L
-        push!(J, tr(apply(MPO(current(i), sites), ρ; cutoff, maxdim)))
+        current = op("current", sites[i], sites[i+1])
+        push!(J, tr(apply(current, ρ; cutoff, maxdim)))
       end
     end
-    orthogonalize!(ρ, c)
+    # orthogonalize!(ρ, c)
     println("Time = $t")
     flush(stdout)
     push!(times, t)

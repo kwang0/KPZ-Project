@@ -36,10 +36,13 @@ function inf_temp_mps(sites)
         rightlink = commonind(ψ[j+1],ψ[j+2])
         A = ITensor(ComplexF64, s1, s2, rightlink)
 
-        A[s1=>1, s2=>4, rightlink => 1] = 1/2
-        A[s1=>4, s2=>1, rightlink => 1] = 1/2
-        A[s1=>2, s2=>3, rightlink => 1] = 1/2
-        A[s1=>3, s2=>2, rightlink => 1] = 1/2
+        A[s1=>1, s2=>4, rightlink => 1] = 1/sqrt(3)
+        A[s1=>4, s2=>1, rightlink => 1] = 1/sqrt(3)
+
+        A[s1=>2, s2=>2, rightlink => 1] = -1/2 * 1/sqrt(3)
+        A[s1=>3, s2=>3, rightlink => 1] = -1/2 * 1/sqrt(3)
+        A[s1=>2, s2=>3, rightlink => 1] = -1/2 * 1/sqrt(3)
+        A[s1=>3, s2=>2, rightlink => 1] = -1/2 * 1/sqrt(3)
 
         U,S,V = svd(A, (s1), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -49,10 +52,13 @@ function inf_temp_mps(sites)
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
         A = ITensor(ComplexF64, s1, s2, leftlink)
 
-        A[s1=>1, s2=>4, leftlink => 1] = 1/2
-        A[s1=>4, s2=>1, leftlink => 1] = 1/2
-        A[s1=>2, s2=>3, leftlink => 1] = 1/2
-        A[s1=>3, s2=>2, leftlink => 1] = 1/2
+        A[s1=>1, s2=>4, leftlink => 1] = 1/sqrt(3)
+        A[s1=>4, s2=>1, leftlink => 1] = 1/sqrt(3)
+
+        A[s1=>2, s2=>2, leftlink => 1] = -1/2 * 1/sqrt(3)
+        A[s1=>3, s2=>3, leftlink => 1] = -1/2 * 1/sqrt(3)
+        A[s1=>2, s2=>3, leftlink => 1] = -1/2 * 1/sqrt(3)
+        A[s1=>3, s2=>2, leftlink => 1] = -1/2 * 1/sqrt(3)
 
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -64,10 +70,13 @@ function inf_temp_mps(sites)
     
         A = ITensor(ComplexF64, s1, s2, rightlink, leftlink)
 
-        A[s1=>1, s2=>4, rightlink=>1, leftlink => 1] = 1/2
-        A[s1=>4, s2=>1, rightlink=>1, leftlink => 1] = 1/2
-        A[s1=>2, s2=>3, rightlink=>1, leftlink => 1] = 1/2
-        A[s1=>3, s2=>2, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>1, s2=>4, rightlink=>1, leftlink => 1] = 1/sqrt(3)
+        A[s1=>4, s2=>1, rightlink=>1, leftlink => 1] = 1/sqrt(3)
+
+        A[s1=>2, s2=>2, rightlink=>1, leftlink => 1] = -1/2 * 1/sqrt(3)
+        A[s1=>3, s2=>3, rightlink=>1, leftlink => 1] = -1/2 * 1/sqrt(3)
+        A[s1=>2, s2=>3, rightlink=>1, leftlink => 1] = -1/2 * 1/sqrt(3)
+        A[s1=>3, s2=>2, rightlink=>1, leftlink => 1] = -1/2 * 1/sqrt(3)
 
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -106,6 +115,12 @@ ITensors.op(::OpName"S2z",::SiteType"S=3/2") =
    0    0  +1/2   0
    0    0    0  -1/2]
 
+ITensors.op(::OpName"Sz",::SiteType"S=3/2") =
+  [+1   0    0    0
+   0    0    0    0 
+   0    0    0    0
+   0    0    0   -1]
+
 ITensors.op(::OpName"S1+",::SiteType"S=3/2") =
   [0   0  1  0
    0   0  0  1
@@ -140,26 +155,39 @@ ITensors.op(::OpName"Id",::SiteType"S=3/2") =
    0   0  1   0
    0   0  0  1]
 
-function heisenberg(L, J2, real_evolution)
+function noise(L, γ)
+  os = OpSum()
+
+  for j in 1:2:(2*L - 1)
+    η = sqrt(γ) * randn() # Random on-site gaussian noise 
+
+    os += η, "Sz", j
+    os += -1 * η, "Sz", j + 1
+  end
+    
+  return os
+end
+
+function heisenberg(L, J2, Delta, real_evolution)
   os = OpSum()
 
   # Adding J1 = 1 terms in ladder
   for j in 1:2:(2*L - 3)
-    os += "S1z", j, "S1z", j + 2
+    os += Delta, "S1z", j, "S1z", j + 2
     os += 0.5, "S1+", j, "S1-", j + 2
     os += 0.5, "S1-", j, "S1+", j + 2
 
-    os += "S2z", j, "S2z", j + 2
+    os += Delta, "S2z", j, "S2z", j + 2
     os += 0.5, "S2+", j, "S2-", j + 2
     os += 0.5, "S2-", j, "S2+", j + 2
 
     if (real_evolution)
       # Apply disentangler exp(iHt) on ancilla sites
-      os += -1, "S1z", j + 1, "S1z", j + 3
+      os += -1 * Delta, "S1z", j + 1, "S1z", j + 3
       os += -0.5, "S1+", j + 1, "S1-", j + 3
       os += -0.5, "S1-", j + 1, "S1+", j + 3
 
-      os += -1, "S2z", j + 1, "S2z", j + 3
+      os += -1 * Delta, "S2z", j + 1, "S2z", j + 3
       os += -0.5, "S2+", j + 1, "S2-", j + 3
       os += -0.5, "S2-", j + 1, "S2+", j + 3
     end
@@ -190,11 +218,11 @@ function current(j)
   return os
 end
 
-function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0)
+function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100, maxdim=32, J2=0, Delta=1.0, γ=0.0)
   tick()
   sites = siteinds("S=3/2", 2 * L; conserve_qns=false)
-  H_imag = NDTensors.cu(MPO(heisenberg(L, J2, false), sites))
-  H_real = NDTensors.cu(MPO(heisenberg(L, J2, true), sites))
+  H_imag = NDTensors.cu(MPO(heisenberg(L, J2, Delta, false), sites))
+  H_real = NDTensors.cu(MPO(heisenberg(L, J2, Delta, true), sites))
 
   # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
   ψ = NDTensors.cu(inf_temp_mps(sites))
@@ -220,9 +248,9 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   ψ2 = apply(j_center, ψ; cutoff, maxdim)
   # normalize!(ψ2)
 
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_drude.h5"
-  # filename = "tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2).h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Delta$(Delta)_gamma$(γ)_drude.h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Delta$(Delta)_gamma$(γ)_drude.h5"
+  # filename = "tdvp_coarsegrained_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Delta$(Delta)_gamma$(γ)_drude.h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
@@ -237,7 +265,7 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
 
     sites = siteinds(ψ)
     j = NDTensors.cu(MPO(current(c), sites))
-    H_real = NDTensors.cu(MPO(heisenberg(L, J2, true), sites))
+    H_real = NDTensors.cu(MPO(heisenberg(L, J2, Delta, true), sites))
   else
     times = Float64[]
     corrs = []
@@ -250,12 +278,12 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
   for t in start_time:δt:ttotal
     corr = ComplexF64[]
     for i in 1:2:(2*L - 3)
-      orthogonalize!(ψ, i)
-      orthogonalize!(ψ2, i)
+      # orthogonalize!(ψ, i)
+      # orthogonalize!(ψ2, i)
       j = NDTensors.cu(MPO(current(i), sites))
       push!(corr, inner(apply(j, ψ; cutoff, maxdim), ψ2))
     end
-    orthogonalize!(ψ2, c)
+    # orthogonalize!(ψ2, c)
 
     println("Time = $t")
     flush(stdout)
@@ -286,16 +314,18 @@ function main(; L=128, cutoff=1e-10, δτ=0.05, β_max=3.0, δt=0.1, ttotal=100,
     # @time ψ2 = basis_extend(ψ2, H_real; cutoff, extension_krylovdim=2)
     # end
 
-    ψ = tdvp(H_real, -im * δt, ψ;
-      nsweeps=1,
-      reverse_step=true,
-      normalize=false,
-      maxdim=maxdim,
-      cutoff=cutoff,
-      outputlevel=1,
-      (observer!)=obs
-    )
-    GC.gc()
+    H_real = NDTensors.cu(MPO(heisenberg(L, J2, Delta, true) + noise(L, γ), sites))
+
+    # ψ = tdvp(H_real, -im * δt, ψ;
+    #   nsweeps=1,
+    #   reverse_step=true,
+    #   normalize=false,
+    #   maxdim=maxdim,
+    #   cutoff=cutoff,
+    #   outputlevel=1,
+    #   (observer!)=obs
+    # )
+    # GC.gc()
     ψ2 = tdvp(H_real, -im * δt, ψ2;
       nsweeps=1,
       reverse_step=true,
@@ -325,5 +355,7 @@ maxdim = parse(Int64, ARGS[2])
 β_max = parse(Float64, ARGS[3])
 δt = parse(Float64, ARGS[4])
 J2 = parse(Float64, ARGS[5])
+Delta = parse(Float64, ARGS[6])
+γ = parse(Float64, ARGS[7])
 
-main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2)
+main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, Delta=Delta, γ=γ)

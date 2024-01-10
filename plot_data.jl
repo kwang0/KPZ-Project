@@ -3,6 +3,7 @@ using DataFrames
 using PyPlot
 using HDF5
 using CurveFit
+using Glob
 
 # # Plotting Maxime's data
 # function plot_csv(f::String)
@@ -137,7 +138,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         transfer .= transfer[1] .- transfer
         ax.loglog(times, transfer[:] .* (times .^ (-2/3)), label=f)
         # plt.plot(log.(times), diffusion, label=f)
-        # ax.legend()
+        ax.legend()
     elseif graph == "exponent_transfer"
         F = h5open(f,"r")
         Z1s = real(read(F, "Z1s"))
@@ -152,7 +153,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         alphas = []
         errors = []
         ts = []
-        t = 5.0
+        t = 2.5
         scale = 1.25
         while (t < times[end] && size(times[times .> t],1) > 30)
             push!(ts, t)
@@ -175,8 +176,8 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         end
         # ax.scatter(ts, alphas, label=f, s=10.0, marker="x")
         ax.set_ylim(1,2)
-        ax.errorbar(ts, alphas, yerr=errors, label=f, marker=".")
-        ax.legend()
+        ax.errorbar(ts, alphas, yerr=errors, label=f, marker=".", linestyle="--")
+        # ax.legend()
     end
     # end
     

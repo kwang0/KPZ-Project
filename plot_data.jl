@@ -16,14 +16,14 @@ using Glob
 # end
 
 # Plot my own data
-function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite")
+function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0)
     if graph == "both"
         plot_hdf(ax[1], f, type=type, graph = "twosite")
         plot_hdf(ax[2], f, type=type, graph = "exponent")
         return
     elseif graph == "both_transfer"
         plot_hdf(ax[1], f, type=type, graph = "transfer")
-        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer")
+        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale)
         return
     end
 
@@ -161,7 +161,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
             window_max = t + 20
 
             window_transfer = transfer[(times .> window_min) .& (times .< window_max)]
-            window_times = times[(times .> window_min) .& (times .< window_max)]
+            window_times = times[(times .> window_min) .& (times .< window_max)] .* t_scale
             x = log.(window_times)
             y = log.(window_transfer)
 
@@ -176,7 +176,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         end
         # ax.scatter(ts, alphas, label=f, s=10.0, marker="x")
         ax.set_ylim(1,2)
-        ax.errorbar(ts, alphas, yerr=errors, label=f, marker=".", linestyle="--")
+        ax.errorbar(ts .* t_scale, alphas, yerr=errors, label=f, marker=".", linestyle="--")
         # ax.legend()
     end
     # end

@@ -174,9 +174,9 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
             push!(errors, alpha_err)
             t *= scale
         end
-        # ax.scatter(ts, alphas, label=f, s=10.0, marker="x")
+        ax.plot(ts .* t_scale, alphas, label=f, marker=".", linestyle="--")
         ax.set_ylim(1,2)
-        ax.errorbar(ts .* t_scale, alphas, yerr=errors, label=f, marker=".", linestyle="--")
+        # ax.errorbar(ts .* t_scale, alphas, yerr=errors, label=f, marker=".", linestyle="--")
         # ax.legend()
     end
     # end

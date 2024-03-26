@@ -8,6 +8,6 @@
 
 export OMP_NUM_THREADS=256
 export MKL_NUM_THREADS=256
-julia --heap-size-hint=400G $1 $2 $3 $4 $5 $6 > logs_jl/tebd_mpdo_L${2}_chi${3}_dt${4}_Jprime${5}_mu${6}.txt
+julia --heap-size-hint=400G $1 $2 $3 $4 $5 $6 $7 > logs_jl/tebd_mpdo_L${2}_chi${3}_dt${4}_Jprime${5}_U${6}_mu${7}.txt
 
 exit 0

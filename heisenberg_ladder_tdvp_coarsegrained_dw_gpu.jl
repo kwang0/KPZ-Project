@@ -1,12 +1,26 @@
 using MKL
 using ITensors
 using ITensorTDVP
+using CUDA
 using Printf
 using PyPlot
 using HDF5
 using LinearAlgebra
 using TickTock
 include("basis_extend.jl")
+include("applyexp.jl")
+
+function solver(H, t, psi0; kwargs...)
+    tol_per_unit_time = get(kwargs, :solver_tol, 1E-8)
+    solver_kwargs = (;
+        maxiter=get(kwargs, :solver_krylovdim, 30),
+        outputlevel=get(kwargs, :solver_outputlevel, 0),
+    )
+    #applyexp tol is absolute, compute from tol_per_unit_time:
+    tol = abs(t) * tol_per_unit_time
+    psi, info = applyexp(H, t, psi0; tol, solver_kwargs..., kwargs...)
+    return psi, info
+end
 
 mutable struct SizeObserver <: AbstractObserver
 end
@@ -209,32 +223,32 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
 
   c = div(L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
-  # filename = "tdvp_coarsegrained_dw_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
+  # filename = "tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_mu$(μ).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
     times = read(F, "times")
     Z1s = read(F, "Z1s")
     Z2s = read(F, "Z2s")
-    ψ = read(F, "psi", MPS)
+    ψ = cu(read(F, "psi", MPS))
     start_time = last(times) + δt
     close(F)
 
     sites = siteinds(ψ)
-    H_real = MPO(heisenberg(L, J2, Delta, true), sites)
+    H_real = cu(MPO(heisenberg(L, J2, Delta, true), sites))
   else
-    sites = siteinds("S=3/2", 2 * L; conserve_qns=true)
-    H_imag = MPO(heisenberg(L, J2, Delta, false), sites)
-    H_real = MPO(heisenberg(L, J2, Delta, true), sites)
+    sites = siteinds("S=3/2", 2 * L; conserve_qns=false)
+    H_imag = cu(MPO(heisenberg(L, J2, Delta, false), sites))
+    H_real = cu(MPO(heisenberg(L, J2, Delta, true), sites))
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
-    ψ = inf_temp_mps(sites)
+    ψ = cu(inf_temp_mps(sites))
     # ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
   
     # Create initial domain wall state
-    ψ = tdvp(MPO(H_dw(L), sites), μ, ψ;
+    ψ = tdvp(cu(MPO(H_dw(L), sites)), μ, ψ;
         nsweeps=1,
         reverse_step=true,
         normalize=true,
@@ -276,7 +290,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     # @time ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
     # end
 
-    ψ = tdvp(H_real, -im * δt, ψ;
+    ψ = tdvp(solver, H_real, -im * δt, ψ;
       nsweeps=1,
       reverse_step=true,
       normalize=false,
@@ -302,7 +316,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     F["Z1s"] = Z1s
     F["Z2s"] = Z2s
     F["corrs"] = (Z1s[c-1,:] .- Z1s[c,:]) ./ (2 * μ)
-    F["psi"] = ψ
+    F["psi"] = ITensors.cpu(ψ)
     close(F)
 
     t≈ttotal && break
@@ -310,7 +324,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
 end
 
 ITensors.Strided.set_num_threads(1)
-BLAS.set_num_threads(256)
+BLAS.set_num_threads(1)
 # ITensors.enable_threaded_blocksparse(true)
 
 L = parse(Int64, ARGS[1])

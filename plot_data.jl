@@ -155,7 +155,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         ts = []
         t = 2.5
         scale = 1.25
-        while (t < times[end] && size(times[times .> t],1) > 30)
+        while (t < times[end] && size(times[times .> t],1) > 100)
             push!(ts, t)
             window_min = t
             window_max = t + 20

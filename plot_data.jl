@@ -44,7 +44,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         type == "hdf" && (corrs = corrs[size(corrs)[1]÷2-1, :])
         ax.loglog(times, corrs , label=f)
     elseif graph == "twosite"
-        type == "hdf" && (corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :])
+        # type == "hdf" && (corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :])
 
         # sigma = 2.0
         # broadening = (1.0 / (sigma * sqrt(2 * pi))) .* exp.(-(times .- times').^2 ./ (2*sigma^2))
@@ -53,7 +53,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         ax.loglog(times, corrs .* (times.^(2/3)), label=f)
         # ax.legend()
     elseif graph == "exponent"
-        type == "hdf" && (corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :])
+        # type == "hdf" && (corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :])
         # alphas = (log.(corrs[2:end]) .- log.(corrs[1:end-1])) ./ (log.(times[2:end]) .- log.(times[1:end-1]))
         # plt.plot(times[1:end-1], alphas, label=f)
 
@@ -178,6 +178,12 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         ax.set_ylim(1,2)
         # ax.errorbar(ts .* t_scale, alphas, yerr=errors, label=f, marker=".", linestyle="--")
         # ax.legend()
+    elseif graph == "entropy"
+        F = h5open(f,"r")
+        Ss = real(read(F, "Ss"))
+        close(F)
+        
+        ax.plot(times, Ss[:], label=f)
     end
     # end
     

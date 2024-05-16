@@ -11,16 +11,16 @@ include("basis_extend.jl")
 mutable struct SizeObserver <: AbstractObserver
 end
 
-# entropy_von_neumann(t::ITensor) = entropy_von_neumann(tensor(NDTensors.cpu(t)))
-
-# function entropy_von_neumann(t::Tensor)
-#    SvN = eltype(t)
-#     for n=1:dim(S, 1)
-#         p = S[n,n]^2
-#         SvN -= p * log(p)
-#     end
-#     return SvN
-# end
+function entropy_von_neumann(ψ, b)
+  ψ = orthogonalize(ψ, b)
+  U,S,V = svd(ψ[b], (linkinds(ψ, b-1)..., siteinds(ψ, b)...))
+  SvN = 0.0
+  for n=1:dim(S, 1)
+    p = S[n,n]^2
+    SvN -= p * log(p)
+  end
+  return SvN
+end
 
 function ITensors.measure!(o::SizeObserver; bond, sweep, half_sweep, psi, kwargs...)
   if bond==1 && half_sweep==2
@@ -218,6 +218,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     times = read(F, "times")
     Z1s = read(F, "Z1s")
     Z2s = read(F, "Z2s")
+    Ss = read(F, "Ss")
     ψ = read(F, "psi", MPS)
     start_time = last(times) + δt
     close(F)
@@ -262,6 +263,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     times = Float64[]
     Z1s = []
     Z2s = []
+    Ss = []
     start_time = δt
   end
 
@@ -289,18 +291,21 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
 
     Z1 = expect(ψ, "S1z"; sites=1:2:(2*L-1))
     Z2 = expect(ψ, "S2z"; sites=1:2:(2*L-1))
+    S = entropy_von_neumann(ψ, L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
 
     println("Time = $t")
     flush(stdout)
     push!(times, t)
     t == δt ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
     t == δt ? Z2s = Z2 : Z2s = hcat(Z2s, Z2)
+    t == δt ? Ss = S : Ss = hcat(Ss, S)
 
     # Writing to data file
     F = h5open(filename,"w")
     F["times"] = times
     F["Z1s"] = Z1s
     F["Z2s"] = Z2s
+    F["Ss"] = Ss
     F["corrs"] = (Z1s[c-1,:] .- Z1s[c,:]) ./ (2 * μ)
     F["psi"] = ψ
     close(F)

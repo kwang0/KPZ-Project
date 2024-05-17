@@ -201,6 +201,36 @@ function heisenberg(L, J2, Delta, real_evolution)
   return os
 end
 
+# Measure total magnetization in left half
+function magnetization_transfer(L)
+  os = OpSum()
+
+  for j in 1:2:(L-1)
+    os += -1, "S1z", j
+    os += -1, "S2z", j
+  end
+
+  return os
+end
+
+# Calculating first four moments of full counting statistics of magnetization transfer
+function moments(L, ψ, sites)
+  M_op = cu(MPO(magnetization_transfer(L), sites))
+  ψ2 = apply(M_op, ψ)
+  M_avg = inner(ψ, ψ2)
+
+  ψ2 = apply(M_op, ψ2)
+  M2 = inner(ψ, ψ2)
+
+  ψ2 = apply(M_op, ψ2)
+  M3 = inner(ψ, ψ2)
+
+  ψ2 = apply(M_op, ψ2)
+  M4 = inner(ψ, ψ2)
+
+  return [M_avg, M2, M3, M4]
+end
+
 # Adding "Zeeman terms" to produce domain wall density matrix
 function H_dw(L)
   os = OpSum()
@@ -233,6 +263,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     Z1s = read(F, "Z1s")
     Z2s = read(F, "Z2s")
     Ss = read(F, "Ss")
+    M_moments = read(F, "M_moments")
     ψ = cu(read(F, "psi", MPS))
     start_time = last(times) + δt
     close(F)
@@ -278,6 +309,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     Z1s = []
     Z2s = []
     Ss = []
+    M_moments = []
     start_time = δt
   end
 
@@ -305,14 +337,16 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
 
     Z1 = expect(ψ, "S1z"; sites=1:2:(2*L-1))
     Z2 = expect(ψ, "S2z"; sites=1:2:(2*L-1))
-    S = entropy_von_neumann(ψ, L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
-    t == δt ? Ss = S : Ss = hcat(Ss, S)
+    S = entropy_von_neumann(ITensors.cpu(ψ), L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
+    @time M_moment = moments(L, ψ, sites)
 
     println("Time = $t")
     flush(stdout)
     push!(times, t)
     t == δt ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
     t == δt ? Z2s = Z2 : Z2s = hcat(Z2s, Z2)
+    t == δt ? Ss = S : Ss = hcat(Ss, S)
+    t == δt ? M_moments = M_moment : M_moments = hcat(M_moments, M_moment)
 
     # Writing to data file
     F = h5open(filename,"w")
@@ -320,6 +354,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     F["Z1s"] = Z1s
     F["Z2s"] = Z2s
     F["Ss"] = Ss
+    F["M_moments"] = M_moments
     F["corrs"] = (Z1s[c-1,:] .- Z1s[c,:]) ./ (2 * μ)
     F["psi"] = ITensors.cpu(ψ)
     close(F)

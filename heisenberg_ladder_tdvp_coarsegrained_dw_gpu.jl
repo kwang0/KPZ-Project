@@ -214,19 +214,19 @@ function magnetization_transfer(L)
 end
 
 # Calculating first four moments of full counting statistics of magnetization transfer
-function moments(L, ψ, sites)
+function moments(L, ψ, sites, cutoff, maxdim)
   M_op = cu(MPO(magnetization_transfer(L), sites))
-  ψ2 = apply(M_op, ψ)
+  ψ2 = apply(M_op, ψ; cutoff, maxdim)
   M_avg = inner(ψ, ψ2)
 
-  ψ2 = apply(M_op, ψ2)
-  M2 = inner(ψ, ψ2)
+  # ψ2 = apply(M_op, ψ2)
+  M2 = inner(ψ2, ψ2)
 
-  ψ2 = apply(M_op, ψ2)
-  M3 = inner(ψ, ψ2)
+  ψ3 = apply(M_op, ψ2; cutoff, maxdim)
+  M3 = inner(ψ2, ψ3)
 
-  ψ2 = apply(M_op, ψ2)
-  M4 = inner(ψ, ψ2)
+  # ψ2 = apply(M_op, ψ2)
+  M4 = inner(ψ3, ψ3)
 
   return [M_avg, M2, M3, M4]
 end
@@ -338,7 +338,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     Z1 = expect(ψ, "S1z"; sites=1:2:(2*L-1))
     Z2 = expect(ψ, "S2z"; sites=1:2:(2*L-1))
     S = entropy_von_neumann(ITensors.cpu(ψ), L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
-    @time M_moment = moments(L, ψ, sites)
+    @time M_moment = moments(L, ψ, sites, cutoff, maxdim)
 
     println("Time = $t")
     flush(stdout)

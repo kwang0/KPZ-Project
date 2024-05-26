@@ -41,10 +41,10 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         
     # if length(size(corrs)) == 2
     if graph == "onesite"
-        type == "hdf" && (corrs = corrs[size(corrs)[1]÷2-1, :])
+        type == "hdf" && (length(size(corrs)) == 2) && (corrs = corrs[size(corrs)[1]÷2-1, :])
         ax.loglog(times, corrs , label=f)
     elseif graph == "twosite"
-        # type == "hdf" && (corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :])
+        type == "hdf" && (length(size(corrs)) == 2) && (corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :])
 
         # sigma = 2.0
         # broadening = (1.0 / (sigma * sqrt(2 * pi))) .* exp.(-(times .- times').^2 ./ (2*sigma^2))
@@ -53,7 +53,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         ax.loglog(times, corrs .* (times.^(2/3)), label=f)
         # ax.legend()
     elseif graph == "exponent"
-        # type == "hdf" && (corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :])
+        type == "hdf" && (length(size(corrs)) == 2) && (corrs = corrs[size(corrs)[1]÷2-1, :] + corrs[size(corrs)[1]÷2, :])
         # alphas = (log.(corrs[2:end]) .- log.(corrs[1:end-1])) ./ (log.(times[2:end]) .- log.(times[1:end-1]))
         # plt.plot(times[1:end-1], alphas, label=f)
 
@@ -64,9 +64,9 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         alphas = []
         errors = []
         ts = []
-        t = 10.0
+        t = 2.5
         scale = 1.25
-        while (t < times[end] && size(times[times .> t],1) > 30)
+        while (t < times[end] && size(times[times .> t],1) > 100)
             push!(ts, t)
             window_min = t
             window_max = t + 20

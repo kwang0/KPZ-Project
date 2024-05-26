@@ -215,7 +215,8 @@ end
 
 # Calculating first four moments of full counting statistics of magnetization transfer
 function moments(L, ψ, sites, cutoff, maxdim)
-  M_op = cu(MPO(magnetization_transfer(L), sites))
+  # M_op = cu(MPO(magnetization_transfer(L), sites))
+  M_op = cu(MPO(H_dw(L), sites))
   ψ2 = apply(M_op, ψ; cutoff, maxdim)
   M_avg = inner(ψ, ψ2)
 
@@ -263,7 +264,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     Z1s = read(F, "Z1s")
     Z2s = read(F, "Z2s")
     Ss = read(F, "Ss")
-    M_moments = read(F, "M_moments")
+    # M_moments = read(F, "M_moments")
     ψ = cu(read(F, "psi", MPS))
     start_time = last(times) + δt
     close(F)
@@ -309,7 +310,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     Z1s = []
     Z2s = []
     Ss = []
-    M_moments = []
+    # M_moments = []
     start_time = δt
   end
 
@@ -338,7 +339,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     Z1 = expect(ψ, "S1z"; sites=1:2:(2*L-1))
     Z2 = expect(ψ, "S2z"; sites=1:2:(2*L-1))
     S = entropy_von_neumann(ITensors.cpu(ψ), L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
-    @time M_moment = moments(L, ψ, sites, cutoff, maxdim)
+    # @time M_moment = moments(L, ψ, sites, cutoff, maxdim)
 
     println("Time = $t")
     flush(stdout)
@@ -346,7 +347,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     t == δt ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
     t == δt ? Z2s = Z2 : Z2s = hcat(Z2s, Z2)
     t == δt ? Ss = S : Ss = hcat(Ss, S)
-    t == δt ? M_moments = M_moment : M_moments = hcat(M_moments, M_moment)
+    # t == δt ? M_moments = M_moment : M_moments = hcat(M_moments, M_moment)
 
     # Writing to data file
     F = h5open(filename,"w")
@@ -354,7 +355,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     F["Z1s"] = Z1s
     F["Z2s"] = Z2s
     F["Ss"] = Ss
-    F["M_moments"] = M_moments
+    # F["M_moments"] = M_moments
     F["corrs"] = (Z1s[c-1,:] .- Z1s[c,:]) ./ (2 * μ)
     F["psi"] = ITensors.cpu(ψ)
     close(F)

@@ -16,14 +16,17 @@ using Glob
 # end
 
 # Plot my own data
-function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0)
+function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0, label="default")
+    if label == "default"
+        label = f
+    end
     if graph == "both"
-        plot_hdf(ax[1], f, type=type, graph = "twosite")
-        plot_hdf(ax[2], f, type=type, graph = "exponent")
+        plot_hdf(ax[1], f, type=type, graph = "twosite", label = label)
+        plot_hdf(ax[2], f, type=type, graph = "exponent", label = label)
         return
     elseif graph == "both_transfer"
-        plot_hdf(ax[1], f, type=type, graph = "transfer")
-        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale)
+        plot_hdf(ax[1], f, type=type, graph = "transfer", label = label)
+        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale, label = label)
         return
     end
 
@@ -136,7 +139,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         c = size(Zs,1)÷2
         transfer = sum(Z1s[1:c,:],dims=1)
         transfer .= transfer[1] .- transfer
-        ax.loglog(times, transfer[:] .* (times .^ (-2/3)), label=f)
+        ax.loglog(times, transfer[:] .* (times .^ (-2/3)), label = label)
         # plt.plot(log.(times), diffusion, label=f)
         ax.legend()
     elseif graph == "exponent_transfer"

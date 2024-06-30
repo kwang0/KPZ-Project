@@ -163,7 +163,7 @@ ITensors.op(::OpName"Id",::SiteType"S=3/2") =
    0   0  1   0
    0   0  0  1]
 
-function heisenberg(L, J2, Delta, U1, real_evolution)
+function heisenberg(L, J2, Delta, U1, U2, real_evolution)
   os = OpSum()
 
   # Adding J1 = 1 terms in ladder
@@ -227,6 +227,36 @@ function heisenberg(L, J2, Delta, U1, real_evolution)
       os += -U1 * 0.25, "S1-", j + 1, "S1+", j + 3, "S2-", j + 1, "S2+", j + 3
     end
   end
+
+  # Adding U2 biquadratic terms in ladder
+  for j in 1:2:(2*L - 3)
+    os += U2, "S1z", j, "S2z", j, "S1z", j + 2, "S2z", j + 2
+    os += U2 * 0.5, "S1z", j, "S2z", j, "S1+", j + 2, "S2-", j + 2
+    os += U2 * 0.5, "S1z", j, "S2z", j, "S1-", j + 2, "S2+", j + 2
+
+    os += U2 * 0.5, "S1+", j, "S2-", j, "S1z", j + 2, "S2z", j + 2
+    os += U2 * 0.25, "S1+", j, "S2-", j, "S1+", j + 2, "S2-", j + 2
+    os += U2 * 0.25, "S1+", j, "S2-", j, "S1-", j + 2, "S2+", j + 2
+
+    os += U2 * 0.5, "S1-", j, "S2+", j, "S1z", j + 2, "S2z", j + 2
+    os += U2 * 0.25, "S1-", j, "S2+", j, "S1+", j + 2, "S2-", j + 2
+    os += U2 * 0.25, "S1-", j, "S2+", j, "S1-", j + 2, "S2+", j + 2
+
+    if (real_evolution)
+      # Apply disentangler exp(iHt) on ancilla sites
+      os += -U2, "S1z", j + 1, "S2z", j + 1, "S1z", j + 3, "S2z", j + 3
+      os += -U2 * 0.5, "S1z", j + 1, "S2z", j + 1, "S1+", j + 3, "S2-", j + 3
+      os += -U2 * 0.5, "S1z", j + 1, "S2z", j + 1, "S1-", j + 3, "S2+", j + 3
+
+      os += -U2 * 0.5, "S1+", j + 1, "S2-", j + 1, "S1z", j + 3, "S2z", j + 3
+      os += -U2 * 0.25, "S1+", j + 1, "S2-", j + 1, "S1+", j + 3, "S2-", j + 3
+      os += -U2 * 0.25, "S1+", j + 1, "S2-", j + 1, "S1-", j + 3, "S2+", j + 3
+
+      os += -U2 * 0.5, "S1-", j + 1, "S2+", j + 1, "S1z", j + 3, "S2z", j + 3
+      os += -U2 * 0.25, "S1-", j + 1, "S2+", j + 1, "S1+", j + 3, "S2-", j + 3
+      os += -U2 * 0.25, "S1-", j + 1, "S2+", j + 1, "S1-", j + 3, "S2+", j + 3
+    end
+  end
   
   return os
 end
@@ -279,7 +309,7 @@ function H_dw(L)
   return os
 end
 
-function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100, maxdim=32, J2=0.0, Delta=1.0, U1=1.0, μ=0.001)
+function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100, maxdim=32, J2=0.0, Delta=1.0, U1=0.0, U2=0.0, μ=0.001)
   tick()
 
   c = div(L,2) + 1 # center site
@@ -300,11 +330,11 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     close(F)
 
     sites = siteinds(ψ)
-    H_real = cu(MPO(heisenberg(L, J2, Delta, U1, true), sites))
+    H_real = cu(MPO(heisenberg(L, J2, Delta, U1, U2, true), sites))
   else
     sites = siteinds("S=3/2", 2 * L; conserve_qns=false)
-    H_imag = cu(MPO(heisenberg(L, J2, Delta, U1, false), sites))
-    H_real = cu(MPO(heisenberg(L, J2, Delta, U1, true), sites))
+    H_imag = cu(MPO(heisenberg(L, J2, Delta, U1, U2, false), sites))
+    H_real = cu(MPO(heisenberg(L, J2, Delta, U1, U2, true), sites))
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
     ψ = cu(inf_temp_mps(sites))
@@ -404,6 +434,7 @@ maxdim = parse(Int64, ARGS[2])
 δt = parse(Float64, ARGS[4])
 J2 = parse(Float64, ARGS[5])
 U1 = parse(Float64, ARGS[6])
-μ = parse(Float64, ARGS[7])
+U2 = parse(Float64, ARGS[7])
+μ = parse(Float64, ARGS[8])
 
-main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, U1=U1, μ=μ)
+main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, U1=U1, U2=U2, μ=μ)

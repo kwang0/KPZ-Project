@@ -157,6 +157,11 @@ ITensors.op(::OpName"rung",::SiteType"S=3/2") =
     0    -1/4   1/2   0
     0     1/2   -1/4   0
     0     0     0    1/4]
+ITensors.op(::OpName"triplet",::SiteType"S=3/2") =
+    [1    0    0    0
+     0    0    1    0
+     0    1    0    0
+     0    0    0    1]
 ITensors.op(::OpName"Id",::SiteType"S=3/2") =
   [1   0  0   0
    0   1  0   0

@@ -16,7 +16,7 @@ using Glob
 # end
 
 # Plot my own data
-function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0, label="default")
+function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0, label="default", dw="Z")
     if label == "default"
         label = f
     end
@@ -25,8 +25,8 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         plot_hdf(ax[2], f, type=type, graph = "exponent", label = label)
         return
     elseif graph == "both_transfer"
-        plot_hdf(ax[1], f, type=type, graph = "transfer", label = label)
-        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale, label = label)
+        plot_hdf(ax[1], f, type=type, graph = "transfer", label = label, dw = dw)
+        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale, label = label, dw = dw)
         return
     end
 
@@ -130,27 +130,39 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         # plt.plot(log.(times), diffusion, label=f)
         ax.legend()
     elseif graph == "transfer"
-        F = h5open(f,"r")
-        Z1s = real(read(F, "Z1s"))
-        Z2s = real(read(F, "Z2s"))
-        close(F)
+        if dw == "Z"
+            F = h5open(f,"r")
+            Z1s = real(read(F, "Z1s"))
+            Z2s = real(read(F, "Z2s"))
+            close(F)
+            Qs = (Z1s .+ Z2s)
+        elseif dw == "triplet"
+            F = h5open(f,"r")
+            Qs = real(read(F, "Qs"))
+            close(F)
+        end
 
-        Zs = (Z1s .+ Z2s)
-        c = size(Zs,1)÷2
-        transfer = sum(Z1s[1:c,:],dims=1)
+        c = size(Qs,1)÷2
+        transfer = sum(Qs[1:c,:],dims=1)
         transfer .= transfer[1] .- transfer
         ax.loglog(times, transfer[:] .* (times .^ (-2/3)), label = label)
         # plt.plot(log.(times), diffusion, label=f)
         ax.legend()
     elseif graph == "exponent_transfer"
-        F = h5open(f,"r")
-        Z1s = real(read(F, "Z1s"))
-        Z2s = real(read(F, "Z2s"))
-        close(F)
+        if dw == "Z"
+            F = h5open(f,"r")
+            Z1s = real(read(F, "Z1s"))
+            Z2s = real(read(F, "Z2s"))
+            close(F)
+            Qs = (Z1s .+ Z2s)
+        elseif dw == "triplet"
+            F = h5open(f,"r")
+            Qs = real(read(F, "Qs"))
+            close(F)
+        end
 
-        Zs = (Z1s .+ Z2s)
-        c = size(Zs,1)÷2
-        transfer = sum(Z1s[1:c,:],dims=1)
+        c = size(Qs,1)÷2
+        transfer = sum(Qs[1:c,:],dims=1)
         transfer .= transfer[1] .- transfer
 
         alphas = []

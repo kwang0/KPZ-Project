@@ -235,31 +235,11 @@ function heisenberg(L, J2, Delta, U1, U2, real_evolution)
 
   # Adding U2 biquadratic terms in ladder
   for j in 1:2:(2*L - 3)
-    os += U2, "S1z", j, "S2z", j, "S1z", j + 2, "S2z", j + 2
-    os += U2 * 0.5, "S1z", j, "S2z", j, "S1+", j + 2, "S2-", j + 2
-    os += U2 * 0.5, "S1z", j, "S2z", j, "S1-", j + 2, "S2+", j + 2
-
-    os += U2 * 0.5, "S1+", j, "S2-", j, "S1z", j + 2, "S2z", j + 2
-    os += U2 * 0.25, "S1+", j, "S2-", j, "S1+", j + 2, "S2-", j + 2
-    os += U2 * 0.25, "S1+", j, "S2-", j, "S1-", j + 2, "S2+", j + 2
-
-    os += U2 * 0.5, "S1-", j, "S2+", j, "S1z", j + 2, "S2z", j + 2
-    os += U2 * 0.25, "S1-", j, "S2+", j, "S1+", j + 2, "S2-", j + 2
-    os += U2 * 0.25, "S1-", j, "S2+", j, "S1-", j + 2, "S2+", j + 2
+    os += U2, "rung", j, "rung", j + 2
 
     if (real_evolution)
       # Apply disentangler exp(iHt) on ancilla sites
-      os += -U2, "S1z", j + 1, "S2z", j + 1, "S1z", j + 3, "S2z", j + 3
-      os += -U2 * 0.5, "S1z", j + 1, "S2z", j + 1, "S1+", j + 3, "S2-", j + 3
-      os += -U2 * 0.5, "S1z", j + 1, "S2z", j + 1, "S1-", j + 3, "S2+", j + 3
-
-      os += -U2 * 0.5, "S1+", j + 1, "S2-", j + 1, "S1z", j + 3, "S2z", j + 3
-      os += -U2 * 0.25, "S1+", j + 1, "S2-", j + 1, "S1+", j + 3, "S2-", j + 3
-      os += -U2 * 0.25, "S1+", j + 1, "S2-", j + 1, "S1-", j + 3, "S2+", j + 3
-
-      os += -U2 * 0.5, "S1-", j + 1, "S2+", j + 1, "S1z", j + 3, "S2z", j + 3
-      os += -U2 * 0.25, "S1-", j + 1, "S2+", j + 1, "S1+", j + 3, "S2-", j + 3
-      os += -U2 * 0.25, "S1-", j + 1, "S2+", j + 1, "S1-", j + 3, "S2+", j + 3
+      os += -U2, "rung", j + 1, "rung", j + 3
     end
   end
   

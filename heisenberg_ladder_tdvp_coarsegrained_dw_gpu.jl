@@ -168,7 +168,7 @@ ITensors.op(::OpName"Id",::SiteType"S=3/2") =
    0   0  1   0
    0   0  0  1]
 
-function heisenberg(L, J2, Delta, U1, U2, real_evolution)
+function heisenberg(L, J2, J3, Delta, U1, U2, real_evolution)
   os = OpSum()
 
   # Adding J1 = 1 terms in ladder
@@ -200,6 +200,28 @@ function heisenberg(L, J2, Delta, U1, U2, real_evolution)
     if (real_evolution)
       # Apply disentangler exp(iHt) on ancilla sites
       os += -1*J2, "rung", j + 1
+    end
+  end
+
+  # Adding J3 NNN terms in ladder
+  for j in 1:2:(2*L - 5)
+    os += J3, "S1z", j, "S1z", j + 4
+    os += 0.5 * J3, "S1+", j, "S1-", j + 4
+    os += 0.5 * J3, "S1-", j, "S1+", j + 4
+
+    os += J3, "S2z", j, "S2z", j + 4
+    os += 0.5 * J3, "S2+", j, "S2-", j + 4
+    os += 0.5 * J3, "S2-", j, "S2+", j + 4
+
+    if (real_evolution)
+      # Apply disentangler exp(iHt) on ancilla sites
+      os += -1 * J3, "S1z", j + 1, "S1z", j + 5
+      os += -0.5 * J3, "S1+", j + 1, "S1-", j + 5
+      os += -0.5 * J3, "S1-", j + 1, "S1+", j + 5
+
+      os += -1 * J3, "S2z", j + 1, "S2z", j + 5
+      os += -0.5 * J3, "S2+", j + 1, "S2-", j + 5
+      os += -0.5 * J3, "S2-", j + 1, "S2+", j + 5
     end
   end
 
@@ -294,14 +316,14 @@ function H_dw(L)
   return os
 end
 
-function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100, maxdim=32, J2=0.0, Delta=1.0, U1=0.0, U2=0.0, μ=0.001)
+function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100, maxdim=32, J2=0.0, J3=0.0, Delta=1.0, U1=0.0, U2=0.0, μ=0.001)
   tick()
 
   c = div(L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
-  # filename = "tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
+  # filename = "tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
@@ -315,11 +337,11 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     close(F)
 
     sites = siteinds(ψ)
-    H_real = cu(MPO(heisenberg(L, J2, Delta, U1, U2, true), sites))
+    H_real = cu(MPO(heisenberg(L, J2, J3, Delta, U1, U2, true), sites))
   else
     sites = siteinds("S=3/2", 2 * L; conserve_qns=false)
-    H_imag = cu(MPO(heisenberg(L, J2, Delta, U1, U2, false), sites))
-    H_real = cu(MPO(heisenberg(L, J2, Delta, U1, U2, true), sites))
+    H_imag = cu(MPO(heisenberg(L, J2, J3, Delta, U1, U2, false), sites))
+    H_real = cu(MPO(heisenberg(L, J2, J3, Delta, U1, U2, true), sites))
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
     ψ = cu(inf_temp_mps(sites))
@@ -418,8 +440,9 @@ maxdim = parse(Int64, ARGS[2])
 β_max = parse(Float64, ARGS[3])
 δt = parse(Float64, ARGS[4])
 J2 = parse(Float64, ARGS[5])
-U1 = parse(Float64, ARGS[6])
-U2 = parse(Float64, ARGS[7])
-μ = parse(Float64, ARGS[8])
+J3 = parse(Float64, ARGS[6])
+U1 = parse(Float64, ARGS[7])
+U2 = parse(Float64, ARGS[8])
+μ = parse(Float64, ARGS[9])
 
-main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, U1=U1, U2=U2, μ=μ)
+main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, J3=J3, U1=U1, U2=U2, μ=μ)

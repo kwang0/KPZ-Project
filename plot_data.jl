@@ -136,7 +136,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
             Z2s = real(read(F, "Z2s"))
             close(F)
             Qs = (Z1s .+ Z2s)
-        elseif dw == "triplet"
+        elseif dw == "rung"
             F = h5open(f,"r")
             Qs = real(read(F, "Qs"))
             close(F)
@@ -155,7 +155,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
             Z2s = real(read(F, "Z2s"))
             close(F)
             Qs = (Z1s .+ Z2s)
-        elseif dw == "triplet"
+        elseif dw == "rung"
             F = h5open(f,"r")
             Qs = real(read(F, "Qs"))
             close(F)

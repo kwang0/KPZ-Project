@@ -194,74 +194,82 @@ function heisenberg(L, J2, J3, Delta, U1, U2, real_evolution)
   end
 
   # Adding J2 rung terms in ladder
-  for j in 1:2:(2*L - 1)
-    os += J2, "rung", j
+  if (J2 != 0.0)
+    for j in 1:2:(2*L - 1)
+      os += J2, "rung", j
 
-    if (real_evolution)
-      # Apply disentangler exp(iHt) on ancilla sites
-      os += -1*J2, "rung", j + 1
+      if (real_evolution)
+        # Apply disentangler exp(iHt) on ancilla sites
+        os += -1*J2, "rung", j + 1
+      end
     end
   end
 
   # Adding J3 NNN terms in ladder
-  for j in 1:2:(2*L - 5)
-    os += J3, "S1z", j, "S1z", j + 4
-    os += 0.5 * J3, "S1+", j, "S1-", j + 4
-    os += 0.5 * J3, "S1-", j, "S1+", j + 4
+  if (J3 != 0.0)
+    for j in 1:2:(2*L - 5)
+      os += J3, "S1z", j, "S1z", j + 4
+      os += 0.5 * J3, "S1+", j, "S1-", j + 4
+      os += 0.5 * J3, "S1-", j, "S1+", j + 4
 
-    os += J3, "S2z", j, "S2z", j + 4
-    os += 0.5 * J3, "S2+", j, "S2-", j + 4
-    os += 0.5 * J3, "S2-", j, "S2+", j + 4
+      os += J3, "S2z", j, "S2z", j + 4
+      os += 0.5 * J3, "S2+", j, "S2-", j + 4
+      os += 0.5 * J3, "S2-", j, "S2+", j + 4
 
-    if (real_evolution)
-      # Apply disentangler exp(iHt) on ancilla sites
-      os += -1 * J3, "S1z", j + 1, "S1z", j + 5
-      os += -0.5 * J3, "S1+", j + 1, "S1-", j + 5
-      os += -0.5 * J3, "S1-", j + 1, "S1+", j + 5
+      if (real_evolution)
+        # Apply disentangler exp(iHt) on ancilla sites
+        os += -1 * J3, "S1z", j + 1, "S1z", j + 5
+        os += -0.5 * J3, "S1+", j + 1, "S1-", j + 5
+        os += -0.5 * J3, "S1-", j + 1, "S1+", j + 5
 
-      os += -1 * J3, "S2z", j + 1, "S2z", j + 5
-      os += -0.5 * J3, "S2+", j + 1, "S2-", j + 5
-      os += -0.5 * J3, "S2-", j + 1, "S2+", j + 5
+        os += -1 * J3, "S2z", j + 1, "S2z", j + 5
+        os += -0.5 * J3, "S2+", j + 1, "S2-", j + 5
+        os += -0.5 * J3, "S2-", j + 1, "S2+", j + 5
+      end
     end
   end
 
   # Adding U1 biquadratic terms in ladder
-  for j in 1:2:(2*L - 3)
-    os += U1, "S1z", j, "S1z", j + 2, "S2z", j, "S2z", j + 2
-    os += U1 * 0.5, "S1z", j, "S1z", j + 2, "S2+", j, "S2-", j + 2
-    os += U1 * 0.5, "S1z", j, "S1z", j + 2, "S2-", j, "S2+", j + 2
+  if (U1 != 0.0)
+    for j in 1:2:(2*L - 3)
+      os += U1, "S1z", j, "S1z", j + 2, "S2z", j, "S2z", j + 2
+      os += U1 * 0.5, "S1z", j, "S1z", j + 2, "S2+", j, "S2-", j + 2
+      os += U1 * 0.5, "S1z", j, "S1z", j + 2, "S2-", j, "S2+", j + 2
 
-    os += U1 * 0.5, "S1+", j, "S1-", j + 2, "S2z", j, "S2z", j + 2
-    os += U1 * 0.25, "S1+", j, "S1-", j + 2, "S2+", j, "S2-", j + 2
-    os += U1 * 0.25, "S1+", j, "S1-", j + 2, "S2-", j, "S2+", j + 2
+      os += U1 * 0.5, "S1+", j, "S1-", j + 2, "S2z", j, "S2z", j + 2
+      os += U1 * 0.25, "S1+", j, "S1-", j + 2, "S2+", j, "S2-", j + 2
+      os += U1 * 0.25, "S1+", j, "S1-", j + 2, "S2-", j, "S2+", j + 2
 
-    os += U1 * 0.5, "S1-", j, "S1+", j + 2, "S2z", j, "S2z", j + 2
-    os += U1 * 0.25, "S1-", j, "S1+", j + 2, "S2+", j, "S2-", j + 2
-    os += U1 * 0.25, "S1-", j, "S1+", j + 2, "S2-", j, "S2+", j + 2
+      os += U1 * 0.5, "S1-", j, "S1+", j + 2, "S2z", j, "S2z", j + 2
+      os += U1 * 0.25, "S1-", j, "S1+", j + 2, "S2+", j, "S2-", j + 2
+      os += U1 * 0.25, "S1-", j, "S1+", j + 2, "S2-", j, "S2+", j + 2
 
-    if (real_evolution)
-      # Apply disentangler exp(iHt) on ancilla sites
-      os += -U1, "S1z", j + 1, "S1z", j + 3, "S2z", j + 1, "S2z", j + 3
-      os += -U1 * 0.5, "S1z", j + 1, "S1z", j + 3, "S2+", j + 1, "S2-", j + 3
-      os += -U1 * 0.5, "S1z", j + 1, "S1z", j + 3, "S2-", j + 1, "S2+", j + 3
+      if (real_evolution)
+        # Apply disentangler exp(iHt) on ancilla sites
+        os += -U1, "S1z", j + 1, "S1z", j + 3, "S2z", j + 1, "S2z", j + 3
+        os += -U1 * 0.5, "S1z", j + 1, "S1z", j + 3, "S2+", j + 1, "S2-", j + 3
+        os += -U1 * 0.5, "S1z", j + 1, "S1z", j + 3, "S2-", j + 1, "S2+", j + 3
 
-      os += -U1 * 0.5, "S1+", j + 1, "S1-", j + 3, "S2z", j + 1, "S2z", j + 3
-      os += -U1 * 0.25, "S1+", j + 1, "S1-", j + 3, "S2+", j + 1, "S2-", j + 3
-      os += -U1 * 0.25, "S1+", j + 1, "S1-", j + 3, "S2-", j + 1, "S2+", j + 3
+        os += -U1 * 0.5, "S1+", j + 1, "S1-", j + 3, "S2z", j + 1, "S2z", j + 3
+        os += -U1 * 0.25, "S1+", j + 1, "S1-", j + 3, "S2+", j + 1, "S2-", j + 3
+        os += -U1 * 0.25, "S1+", j + 1, "S1-", j + 3, "S2-", j + 1, "S2+", j + 3
 
-      os += -U1 * 0.5, "S1-", j + 1, "S1+", j + 3, "S2z", j + 1, "S2z", j + 3
-      os += -U1 * 0.25, "S1-", j + 1, "S1+", j + 3, "S2+", j + 1, "S2-", j + 3
-      os += -U1 * 0.25, "S1-", j + 1, "S1+", j + 3, "S2-", j + 1, "S2+", j + 3
+        os += -U1 * 0.5, "S1-", j + 1, "S1+", j + 3, "S2z", j + 1, "S2z", j + 3
+        os += -U1 * 0.25, "S1-", j + 1, "S1+", j + 3, "S2+", j + 1, "S2-", j + 3
+        os += -U1 * 0.25, "S1-", j + 1, "S1+", j + 3, "S2-", j + 1, "S2+", j + 3
+      end
     end
   end
 
   # Adding U2 biquadratic terms in ladder
-  for j in 1:2:(2*L - 3)
-    os += U2, "rung", j, "rung", j + 2
+  if (U2 != 0.0)
+    for j in 1:2:(2*L - 3)
+      os += U2, "rung", j, "rung", j + 2
 
-    if (real_evolution)
-      # Apply disentangler exp(iHt) on ancilla sites
-      os += -U2, "rung", j + 1, "rung", j + 3
+      if (real_evolution)
+        # Apply disentangler exp(iHt) on ancilla sites
+        os += -U2, "rung", j + 1, "rung", j + 3
+      end
     end
   end
   

@@ -284,26 +284,29 @@ function moments(L, ψ, sites, cutoff, maxdim)
 end
 
 # Adding "Zeeman terms" to produce domain wall density matrix
-function H_dw_rung(L)
+function H_dw(L)
   os = OpSum()
 
   for j in 1:2:(L - 1)
-    os += 1, "rung", j
+    os += 1, "S1z", j
+    os += 1, "S2z", j
   end
 
   for j in (L+1):2:(2*L - 1)
-    os -= 1, "rung", j
+    os -= 1, "S1z", j
+    os -= 1, "S2z", j
   end
   
   return os
 end
 
 # Adding uniform field for finite chemical potential
-function H_rung(L)
+function H(L)
   os = OpSum()
 
   for j in 1:2:(2*L - 1)
-    os += 1, "rung", j
+    os += 1, "S1z", j
+    os += 1, "S2z", j
   end
   
   return os
@@ -314,9 +317,9 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
 
   c = div(L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_rung_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
+  # filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_rung_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_rung_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
-  # filename = "tdvp_coarsegrained_dw_rung_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
+  filename = "tdvp_coarsegrained_dw_rung_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
@@ -342,7 +345,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     # ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
   
     # Create initial domain wall state
-    ψ = tdvp(cu(MPO(H_dw_rung(L), sites)), μ, ψ;
+    ψ = tdvp(cu(MPO(H_dw(L), sites)), μ, ψ;
         nsweeps=1,
         reverse_step=true,
         normalize=true,
@@ -353,7 +356,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
       )
 
     # Add finite chemical potential
-    ψ = tdvp(cu(MPO(H_rung(L), sites)), h, ψ;
+    ψ = tdvp(cu(MPO(H(L), sites)), h, ψ;
       nsweeps=1,
       reverse_step=true,
       normalize=true,

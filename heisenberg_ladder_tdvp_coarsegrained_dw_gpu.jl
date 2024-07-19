@@ -324,14 +324,26 @@ function H_dw(L)
   return os
 end
 
-function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100, maxdim=32, J2=0.0, J3=0.0, Delta=1.0, U1=0.0, U2=0.0, μ=0.001)
+# Adding uniform field for finite chemical potential
+function H_h(L)
+  os = OpSum()
+
+  for j in 1:2:(2*L - 1)
+    os += 1, "S1z", j
+    os += 1, "S2z", j
+  end
+  
+  return os
+end
+
+function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100, maxdim=32, J2=0.0, J3=0.0, Delta=1.0, U1=0.0, U2=0.0, μ=0.001, h=0.0)
   tick()
 
   c = div(L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
-  # filename = "tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
+  # filename = "tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
@@ -364,6 +376,17 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
         cutoff=cutoff,
         outputlevel=1,
         nsite=2
+      )
+
+    # Add finite chemical potential
+    ψ = tdvp(cu(MPO(H_h(L), sites)), h, ψ;
+      nsweeps=1,
+      reverse_step=true,
+      normalize=true,
+      maxdim=maxdim,
+      cutoff=cutoff,
+      outputlevel=1,
+      nsite=2
       )
     
     # Cool down to inverse temperature 
@@ -452,5 +475,6 @@ J3 = parse(Float64, ARGS[6])
 U1 = parse(Float64, ARGS[7])
 U2 = parse(Float64, ARGS[8])
 μ = parse(Float64, ARGS[9])
+h = parse(Float64, ARGS[10])
 
-main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, J3=J3, U1=U1, U2=U2, μ=μ)
+main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, J3=J3, U1=U1, U2=U2, μ=μ, h=h)

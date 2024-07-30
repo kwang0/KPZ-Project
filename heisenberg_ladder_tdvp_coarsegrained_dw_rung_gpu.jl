@@ -353,15 +353,27 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
       )
 
     # Add finite chemical potential
-    ψ = tdvp(cu(MPO(H_rung(L), sites)), h, ψ;
-      nsweeps=1,
-      reverse_step=true,
-      normalize=true,
-      maxdim=maxdim,
-      cutoff=cutoff,
-      outputlevel=1,
-      nsite=2
+    if h < 0.1
+      ψ = tdvp(cu(MPO(H_rung(L), sites)), h, ψ;
+        nsweeps=1,
+        reverse_step=true,
+        normalize=true,
+        maxdim=maxdim,
+        cutoff=cutoff,
+        outputlevel=1,
+        nsite=2
       )
+    else
+      ψ = tdvp(cu(MPO(H_rung(L), sites)), 0.1, ψ;
+        nsweeps=trunc(Int, h/0.1),
+        reverse_step=true,
+        normalize=true,
+        maxdim=maxdim,
+        cutoff=cutoff,
+        outputlevel=1,
+        nsite=2
+      )
+    end
     
     # Cool down to inverse temperature 
     for β in δτ:δτ:β_max/2

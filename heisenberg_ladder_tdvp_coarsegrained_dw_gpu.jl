@@ -168,10 +168,10 @@ ITensors.op(::OpName"Id",::SiteType"S=3/2") =
    0   0  1   0
    0   0  0  1]
 
-function heisenberg(L, J2, J3, Delta, U1, U2, real_evolution)
+function heisenberg(L, J2, J3, Delta, U1, U2, P, real_evolution)
   os = OpSum()
 
-  # Adding J1 = 1 terms in ladder
+  # Adding J1 = 1 terms
   for j in 1:2:(2*L - 3)
     os += Delta, "S1z", j, "S1z", j + 2
     os += 0.5, "S1+", j, "S1-", j + 2
@@ -193,7 +193,7 @@ function heisenberg(L, J2, J3, Delta, U1, U2, real_evolution)
     end
   end
 
-  # Adding J2 rung terms in ladder
+  # Adding J2 rung terms
   if (J2 != 0.0)
     for j in 1:2:(2*L - 1)
       os += J2, "rung", j
@@ -205,7 +205,7 @@ function heisenberg(L, J2, J3, Delta, U1, U2, real_evolution)
     end
   end
 
-  # Adding J3 NNN terms in ladder
+  # Adding J3 NNN terms
   if (J3 != 0.0)
     for j in 1:2:(2*L - 5)
       os += J3, "S1z", j, "S1z", j + 4
@@ -229,7 +229,7 @@ function heisenberg(L, J2, J3, Delta, U1, U2, real_evolution)
     end
   end
 
-  # Adding U1 biquadratic terms in ladder
+  # Adding U1 biquadratic terms
   if (U1 != 0.0)
     for j in 1:2:(2*L - 3)
       os += U1, "S1z", j, "S1z", j + 2, "S2z", j, "S2z", j + 2
@@ -261,7 +261,7 @@ function heisenberg(L, J2, J3, Delta, U1, U2, real_evolution)
     end
   end
 
-  # Adding U2 biquadratic terms in ladder
+  # Adding U2 biquadratic terms
   if (U2 != 0.0)
     for j in 1:2:(2*L - 3)
       os += U2, "rung", j, "rung", j + 2
@@ -269,6 +269,54 @@ function heisenberg(L, J2, J3, Delta, U1, U2, real_evolution)
       if (real_evolution)
         # Apply disentangler exp(iHt) on ancilla sites
         os += -U2, "rung", j + 1, "rung", j + 3
+      end
+    end
+  end
+
+  # Adding P NNN terms
+  if (P != 0.0)
+    for j in 1:2:(2*L - 5)
+      os += P, "S1z", j, "S1z", j + 4
+      os += P * 0.5, "S1+", j, "S1-", j + 4
+      os += P * 0.5, "S1-", j, "S1+", j + 4
+
+      os += P, "S2z", j, "S2z", j + 4
+      os += P * 0.5, "S2+", j, "S2-", j + 4
+      os += P * 0.5, "S2-", j, "S2+", j + 4
+
+      os += P * 4.0, "S1z", j, "S1z", j + 4, "S2z", j, "S2z", j + 4
+      os += P * 2.0, "S1z", j, "S1z", j + 4, "S2+", j, "S2-", j + 4
+      os += P * 2.0, "S1z", j, "S1z", j + 4, "S2-", j, "S2+", j + 4
+
+      os += P * 2.0, "S1+", j, "S1-", j + 4, "S2z", j, "S2z", j + 4
+      os += P, "S1+", j, "S1-", j + 4, "S2+", j, "S2-", j + 4
+      os += P, "S1+", j, "S1-", j + 4, "S2-", j, "S2+", j + 4
+
+      os += P * 2.0, "S1-", j, "S1+", j + 4, "S2z", j, "S2z", j + 4
+      os += P, "S1-", j, "S1+", j + 4, "S2+", j, "S2-", j + 4
+      os += P, "S1-", j, "S1+", j + 4, "S2-", j, "S2+", j + 4
+
+      if (real_evolution)
+        # Apply disentangler exp(iHt) on ancilla sites
+        os += -P, "S1z", j + 1, "S1z", j + 5
+        os += -P * 0.5, "S1+", j + 1, "S1-", j + 5
+        os += -P * 0.5, "S1-", j + 1, "S1+", j + 5
+
+        os += -P, "S2z", j + 1, "S2z", j + 5
+        os += -P * 0.5, "S2+", j + 1, "S2-", j + 5
+        os += -P * 0.5, "S2-", j + 1, "S2+", j + 5
+
+        os += -P * 4.0, "S1z", j + 1, "S1z", j + 5, "S2z", j + 1, "S2z", j + 5
+        os += -P * 2.0, "S1z", j + 1, "S1z", j + 5, "S2+", j + 1, "S2-", j + 5
+        os += -P * 2.0, "S1z", j + 1, "S1z", j + 5, "S2-", j + 1, "S2+", j + 5
+    
+        os += -P * 2.0, "S1+", j + 1, "S1-", j + 5, "S2z", j + 1, "S2z", j + 5
+        os += -P, "S1+", j + 1, "S1-", j + 5, "S2+", j + 1, "S2-", j + 5
+        os += -P, "S1+", j + 1, "S1-", j + 5, "S2-", j + 1, "S2+", j + 5
+    
+        os += -P * 2.0, "S1-", j + 1, "S1+", j + 5, "S2z", j + 1, "S2z", j + 5
+        os += -P, "S1-", j + 1, "S1+", j + 5, "S2+", j + 1, "S2-", j + 5
+        os += -P, "S1-", j + 1, "S1+", j + 5, "S2-", j + 1, "S2+", j + 5
       end
     end
   end
@@ -336,14 +384,14 @@ function H_h(L)
   return os
 end
 
-function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100, maxdim=32, J2=0.0, J3=0.0, Delta=1.0, U1=0.0, U2=0.0, μ=0.001, h=0.0)
+function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100, maxdim=32, J2=0.0, J3=0.0, Delta=1.0, U1=0.0, U2=0.0, P=0.0, μ=0.001, h=0.0)
   tick()
 
   c = div(L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
-  # filename = "tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_mu$(μ)_h$(h).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_Pnnn$(P)_mu$(μ)_h$(h).h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_Pnnn$(P)_mu$(μ)_h$(h).h5"
+  # filename = "tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_Pnnn$(P)_mu$(μ)_h$(h).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
@@ -357,11 +405,11 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     close(F)
 
     sites = siteinds(ψ)
-    H_real = cu(MPO(heisenberg(L, J2, J3, Delta, U1, U2, true), sites))
+    H_real = cu(MPO(heisenberg(L, J2, J3, Delta, U1, U2, P, true), sites))
   else
     sites = siteinds("S=3/2", 2 * L; conserve_qns=false)
-    H_imag = cu(MPO(heisenberg(L, J2, J3, Delta, U1, U2, false), sites))
-    H_real = cu(MPO(heisenberg(L, J2, J3, Delta, U1, U2, true), sites))
+    H_imag = cu(MPO(heisenberg(L, J2, J3, Delta, U1, U2, P, false), sites))
+    H_real = cu(MPO(heisenberg(L, J2, J3, Delta, U1, U2, P, true), sites))
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
     ψ = cu(inf_temp_mps(sites))
@@ -474,7 +522,8 @@ J2 = parse(Float64, ARGS[5])
 J3 = parse(Float64, ARGS[6])
 U1 = parse(Float64, ARGS[7])
 U2 = parse(Float64, ARGS[8])
-μ = parse(Float64, ARGS[9])
-h = parse(Float64, ARGS[10])
+P = parse(Float64, ARGS[9])
+μ = parse(Float64, ARGS[10])
+h = parse(Float64, ARGS[11])
 
-main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, J3=J3, U1=U1, U2=U2, μ=μ, h=h)
+main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, J3=J3, U1=U1, U2=U2, P=P, μ=μ, h=h)

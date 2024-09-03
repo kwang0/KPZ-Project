@@ -115,12 +115,18 @@ function inf_temp_mps(sites)
   end
 end
 
-# Representation of two spin-1/2's coarse-grained onto one spin-3/2 Hilbert space
+# Representation of two spin-1/2's coarse-grained onto four-dimensional Hilbert space
 # Convention is (|up,up>, |up,down>, |down,up>, |down,down>)
 function ITensors.space(::SiteType"S=3/2";
   conserve_qns=false)
   if conserve_qns
-    return [QN("Sz",1)=>1,QN("Sz",0)=>2,QN("Sz",-1)=>1]
+    return [
+      QN(("Q1", -1), ("Q2", 1), ("Q3", 1)) => 1
+      QN(("Q1", 1), ("Q2", -1), ("Q3", 1)) => 1
+      QN(("Q1", 1), ("Q2", 1), ("Q3", -1)) => 1
+      QN(("Q1", 1), ("Q2", 1), ("Q3", 1)) => 1
+    ]
+    # return [QN("Sz",1)=>1,QN("Sz",0)=>2,QN("Sz",-1)=>1]
   end
   return 4
 end
@@ -234,7 +240,7 @@ function main(params::SimulationParameters)
 
   c = params.L + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_su(4)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_su(4)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_conserve.h5"
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_su(4)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
   # filename = "tdvp_su(4)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
 
@@ -253,7 +259,7 @@ function main(params::SimulationParameters)
     H_real = cu(H_real_cpu)
   else
     # println(params.δt)
-    sites = siteinds("S=3/2", 4 * params.L; conserve_qns=false)
+    sites = siteinds("S=3/2", 4 * params.L; conserve_qns=true)
     # println(params.δt)
     H_imag = cu(MPO(hamiltonian(params.L, params.U, false), sites))
     H_real_cpu = MPO(hamiltonian(params.L, params.U, true), sites)

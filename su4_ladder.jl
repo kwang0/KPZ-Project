@@ -240,9 +240,9 @@ function main(params::SimulationParameters)
 
   c = params.L + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_su(4)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_conserve.h5"
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_su(4)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
-  # filename = "tdvp_su(4)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_su(4)_dw_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_conserve.h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_su(4)_dw_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
+  # filename = "tdvp_su(4)_dw_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
@@ -250,38 +250,23 @@ function main(params::SimulationParameters)
     Z1s = read(F, "Z1s")
     Z2s = read(F, "Z2s")
     Ss = read(F, "Ss")
-    ψ = cu(read(F, "psi", MPS))
+    ψ = read(F, "psi", MPS)
     start_time = last(times) + params.δt
     close(F)
 
     sites = siteinds(ψ)
     H_real_cpu = MPO(hamiltonian(params.L, params.U, true), sites)
-    H_real = cu(H_real_cpu)
+    H_real = H_real_cpu
   else
-    # println(params.δt)
     sites = siteinds("S=3/2", 4 * params.L; conserve_qns=true)
-    # println(params.δt)
-    H_imag = cu(MPO(hamiltonian(params.L, params.U, false), sites))
-    H_real_cpu = MPO(hamiltonian(params.L, params.U, true), sites)
-    H_real = cu(H_real_cpu)
-    # println("Before creating H_real_cpu, δt: ", params.δt)
-    # println(params.δτ)
-    # H_real_cpu = hamiltonian(params.L, params.U, true)
-    # println("After creating H_real_cpu, δt: ", params.δt)
-    # println(params.δτ)
-    # H_real_mpo = MPO(H_real_cpu, sites)
-    # println("After creating H_real_mpo, δt: ", params.δt)
-    # println(params.δτ)
-    # H_real = cu(H_real_mpo)
-    # println("After converting to CUDA, δt: ", params.δt)
-    # println(params.δτ)
+    H_imag = MPO(hamiltonian(params.L, params.U, false), sites)
+    H_real = MPO(hamiltonian(params.L, params.U, true), sites)
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
-    ψ = cu(inf_temp_mps(sites))
-    # ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
+    ψ = inf_temp_mps(sites)
   
     # Create initial domain wall state
-    ψ = tdvp(cu(MPO(H_dw(params.L), sites)), params.μ, ψ;
+    ψ = tdvp(MPO(H_dw(params.L), sites), params.μ, ψ;
         nsweeps=1,
         reverse_step=true,
         normalize=true,
@@ -323,14 +308,11 @@ function main(params::SimulationParameters)
       break
     end
 
-    ψ = ITensors.cpu(ψ)
-    # H_cpu = ITensors.cpu(H_real)
     # maxlinkdim(ψ) < maxdim ? nsite = 2 : nsite = 1
     if (maxlinkdim(ψ) < params.maxdim)
       # @time ψ = basis_extend(ψ, H_real_cpu; cutoff, extension_krylovdim=2)
-      @time ψ = expand(ψ, H_real_cpu; alg="global_krylov", params.cutoff)
+      @time ψ = expand(ψ, H_real; alg="global_krylov", params.cutoff)
     end
-    ψ = cu(ψ)
 
     ψ = tdvp(H_real, -im * params.δt, ψ;
       nsweeps=1,
@@ -373,7 +355,7 @@ end
 
 ITensors.Strided.set_num_threads(1)
 BLAS.set_num_threads(1)
-# ITensors.enable_threaded_blocksparse(true)
+ITensors.enable_threaded_blocksparse(true)
 
 params = SimulationParameters(
     parse(Int64, ARGS[1]),    # L

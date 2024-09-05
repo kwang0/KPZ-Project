@@ -1,7 +1,7 @@
 using MKL
 using ITensors
 using ITensorTDVP
-using CUDA
+# using CUDA
 using Printf
 using PyPlot
 using HDF5
@@ -309,9 +309,10 @@ function main(params::SimulationParameters)
     end
 
     # maxlinkdim(ψ) < maxdim ? nsite = 2 : nsite = 1
-    if (maxlinkdim(ψ) < params.maxdim)
+    # if (maxlinkdim(ψ) < params.maxdim)
+    if (maxlinkdim(ψ) == 4)
       # @time ψ = basis_extend(ψ, H_real_cpu; cutoff, extension_krylovdim=2)
-      @time ψ = expand(ψ, H_real; alg="global_krylov", params.cutoff)
+      @time ψ = expand(ψ, H_real; alg="global_krylov", params.cutoff, krylovdim=10)
     end
 
     ψ = tdvp(H_real, -im * params.δt, ψ;

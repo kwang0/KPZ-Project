@@ -140,6 +140,10 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
             F = h5open(f,"r")
             Qs = real(read(F, "Qs"))
             close(F)
+        elseif dw == "su(3)"
+            F = h5open(f,"r")
+            Qs = real(read(F, "Zs"))
+            close(F)
         end
 
         c = size(Qs,1)÷2
@@ -158,6 +162,10 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         elseif dw == "rung"
             F = h5open(f,"r")
             Qs = real(read(F, "Qs"))
+            close(F)
+        elseif dw == "su(3)"
+            F = h5open(f,"r")
+            Qs = real(read(F, "Zs"))
             close(F)
         end
 

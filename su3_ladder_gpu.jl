@@ -62,7 +62,7 @@ function inf_temp_mps(sites)
   if (num_sites % 2 != 0)
     throw(DomainError(num_sites,"Expects even number of sites for ancilla-physical singlets."))
   else
-    state = [isodd(n) ? "1" : "4" for n=1:num_sites]
+    state = ["22" for n=1:num_sites]
     ψ = MPS(sites, state)
     for j = 1:2:num_sites-1
       s1 = sites[j]
@@ -72,10 +72,9 @@ function inf_temp_mps(sites)
         rightlink = commonind(ψ[j+1],ψ[j+2])
         A = ITensor(ComplexF64, s1, s2, rightlink)
 
-        A[s1=>1, s2=>4, rightlink => 1] = 1/2
-        A[s1=>4, s2=>1, rightlink => 1] = 1/2
-        A[s1=>2, s2=>3, rightlink => 1] = 1/2
-        A[s1=>3, s2=>2, rightlink => 1] = 1/2
+        for i in 1:9
+          A[s1=>i, s2=>(10-i), rightlink => 1] = 1/3
+        end
 
         U,S,V = svd(A, (s1), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -85,10 +84,9 @@ function inf_temp_mps(sites)
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
         A = ITensor(ComplexF64, s1, s2, leftlink)
 
-        A[s1=>1, s2=>4, leftlink => 1] = 1/2
-        A[s1=>4, s2=>1, leftlink => 1] = 1/2
-        A[s1=>2, s2=>3, leftlink => 1] = 1/2
-        A[s1=>3, s2=>2, leftlink => 1] = 1/2
+        for i in 1:9
+          A[s1=>i, s2=>(10-i), leftlink => 1] = 1/3
+        end
 
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -100,10 +98,9 @@ function inf_temp_mps(sites)
     
         A = ITensor(ComplexF64, s1, s2, rightlink, leftlink)
 
-        A[s1=>1, s2=>4, rightlink=>1, leftlink => 1] = 1/2
-        A[s1=>4, s2=>1, rightlink=>1, leftlink => 1] = 1/2
-        A[s1=>2, s2=>3, rightlink=>1, leftlink => 1] = 1/2
-        A[s1=>3, s2=>2, rightlink=>1, leftlink => 1] = 1/2
+        for i in 1:9
+          A[s1=>i, s2=>(10-i), rightlink=>1, leftlink => 1] = 1/3
+        end
 
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -115,49 +112,69 @@ function inf_temp_mps(sites)
   end
 end
 
-# Representation of two spin-1/2's coarse-grained onto four-dimensional Hilbert space
-# Convention is (|up,up>, |up,down>, |down,up>, |down,down>)
-function ITensors.space(::SiteType"S=3/2";
+# 9-dimensional coarsegrained Hilbert space
+function ITensors.space(::SiteType"SU(3)";
   conserve_qns=false)
-  if conserve_qns
-    return [
-      QN(("Q1", -1), ("Q2", 0), ("Q3", 0)) => 1
-      QN(("Q1", 0), ("Q2", 1), ("Q3", -1)) => 1
-      QN(("Q1", 0), ("Q2", 0), ("Q3", 1)) => 1
-      QN(("Q1", 1), ("Q2", 1), ("Q3", 0)) => 1
-    ]
-    # return [QN("Sz",1)=>1,QN("Sz",0)=>2,QN("Sz",-1)=>1]
-  end
-  return 4
+  # if conserve_qns
+    # return [
+    #   QN(("Q1", 1), ("Q2", 0)) => 1
+    #   QN(("Q1", 0), ("Q2", 1)) => 1
+    #   QN(("Q1", -1), ("Q2", -1)) => 1
+    # ]
+    # return [QN("Sz",1)=>1,QN("Sz",0)=>1,QN("Sz",-1)=>1]
+  # end
+  return 9
 end
 
-ITensors.state(::StateName"1", ::SiteType"S=3/2") = [1.0, 0, 0, 0]
-ITensors.state(::StateName"2", ::SiteType"S=3/2") = [0, 1.0, 0, 0]
-ITensors.state(::StateName"3", ::SiteType"S=3/2") = [0, 0, 1.0, 0]
-ITensors.state(::StateName"4", ::SiteType"S=3/2") = [0, 0, 0, 1.0]
+ITensors.state(::StateName"11", ::SiteType"SU(3)") = [1.0, 0, 0, 0, 0, 0, 0, 0, 0]
+ITensors.state(::StateName"12", ::SiteType"SU(3)") = [0, 1.0, 0, 0, 0, 0, 0, 0, 0]
+ITensors.state(::StateName"13", ::SiteType"SU(3)") = [0, 0, 1.0, 0, 0, 0, 0, 0, 0]
+ITensors.state(::StateName"21", ::SiteType"SU(3)") = [0, 0, 0, 1.0, 0, 0, 0, 0, 0]
+ITensors.state(::StateName"22", ::SiteType"SU(3)") = [0, 0, 0, 0, 1.0, 0, 0, 0, 0]
+ITensors.state(::StateName"23", ::SiteType"SU(3)") = [0, 0, 0, 0, 0, 1.0, 0, 0, 0]
+ITensors.state(::StateName"31", ::SiteType"SU(3)") = [0, 0, 0, 0, 0, 0, 1.0, 0, 0]
+ITensors.state(::StateName"32", ::SiteType"SU(3)") = [0, 0, 0, 0, 0, 0, 0, 1.0, 0]
+ITensors.state(::StateName"33", ::SiteType"SU(3)") = [0, 0, 0, 0, 0, 0, 0, 0, 1.0]
 
-ITensors.op(::OpName"S1z",::SiteType"S=3/2") =
-  [+1/2   0    0    0
-     0  +1/2   0    0 
-     0    0  -1/2   0
-     0    0    0  -1/2]
-     
-ITensors.op(::OpName"S2z",::SiteType"S=3/2") =
-  [+1/2   0    0    0
-   0  -1/2   0    0 
-   0    0  +1/2   0
-   0    0    0  -1/2]
+Sz = 
+[1   0   0
+0   0   0
+0   0  -1]
+Id = 
+[1   0   0
+0   1   0
+0   0  1]
+
+ITensors.op(::OpName"S1z",::SiteType"SU(3)") =
+kron(Sz, Id)
+
+ITensors.op(::OpName"S2z",::SiteType"SU(3)") =
+kron(Id, Sz)
 
 # Define ITensors operators by |i><j|
-N_hilbert = 4
+N_hilbert = 3
 for i in 1:N_hilbert
   for j in 1:N_hilbert
-    op_name = Symbol("S_$(i)_$(j)")
+    op_name = Symbol("S1_$(i)_$(j)")
 
     @eval begin
-      ITensors.op(::OpName{$(QuoteNode(op_name))}, ::SiteType"S=3/2") =
-      let matrix = zeros($(N_hilbert), $(N_hilbert))
-        matrix[$i, $j] = 1.0
+      ITensors.op(::OpName{$(QuoteNode(op_name))}, ::SiteType"SU(3)") =
+      let matrix = zeros($(N_hilbert^2), $(N_hilbert^2))
+        matrix1 = zeros($(N_hilbert), $(N_hilbert))
+        matrix1[$i, $j] = 1.0
+        matrix = kron(matrix1, Id)
+        matrix
+      end
+    end
+
+    op_name = Symbol("S2_$(i)_$(j)")
+
+    @eval begin
+      ITensors.op(::OpName{$(QuoteNode(op_name))}, ::SiteType"SU(3)") =
+      let matrix = zeros($(N_hilbert^2), $(N_hilbert^2))
+        matrix1 = zeros($(N_hilbert), $(N_hilbert))
+        matrix1[$i, $j] = 1.0
+        matrix = kron(Id, matrix1)
         matrix
       end
     end
@@ -167,64 +184,54 @@ end
 function hamiltonian(L, U, real_evolution)
   os = OpSum()
 
-  for n in 1:2:(4*L - 5)
+  for n in 1:2:(2*L - 3)
+    
     # Adding P terms
-    for i in 1:4
-      os += 1, "S_$(i)_$(i)", n, "S_$(i)_$(i)", n + 4
-      if (real_evolution)
-        os += -1, "S_$(i)_$(i)", n + 1, "S_$(i)_$(i)", n + 5
-      end
-
-      for j in (i+1):4
-        os += 1, "S_$(i)_$(j)", n, "S_$(j)_$(i)", n + 4
-        os += 1, "S_$(j)_$(i)", n, "S_$(i)_$(j)", n + 4
+    for i in 1:3
+      for j in 1:3
+        os += 1.0, "S1_$(i)_$(j)", n, "S1_$(j)_$(i)", n + 2
+        os += 1.0, "S2_$(i)_$(j)", n, "S2_$(j)_$(i)", n + 2
 
         # Apply disentangler exp(iHt) on ancilla sites
         if (real_evolution)
-          os += -1, "S_$(i)_$(j)", n + 1, "S_$(j)_$(i)", n + 5
-          os += -1, "S_$(j)_$(i)", n + 1, "S_$(i)_$(j)", n + 5
+          os += -1.0, "S1_$(i)_$(j)", n + 1, "S1_$(j)_$(i)", n + 3
+          os += -1.0, "S2_$(i)_$(j)", n + 1, "S2_$(j)_$(i)", n + 3
         end
 
-        
+        for k in 1:3
+          for l in 1:3
+            os += U, "S1_$(i)_$(j)", n, "S1_$(j)_$(i)", n + 2, "S2_$(k)_$(l)", n, "S2_$(l)_$(k)", n + 2
 
+            # Apply disentangler exp(iHt) on ancilla sites
+            if (real_evolution)
+              os += -U, "S1_$(i)_$(j)", n + 1, "S1_$(j)_$(i)", n + 3, "S2_$(k)_$(l)", n + 1, "S2_$(l)_$(k)", n + 3
+            end
+
+          end
+        end
       end
     end
   end
 
-  # Adding U terms
-  if (U != 0)
-    for n in 1:4:(4*L - 7)
-      for i in 1:4
-        os += U, "S_$(i)_$(i)", n, "S_$(i)_$(i)", n + 4, "S_$(i)_$(i)", n + 2, "S_$(i)_$(i)", n + 6
-        if (real_evolution)
-          os += -U, "S_$(i)_$(i)", n + 1, "S_$(i)_$(i)", n + 5, "S_$(i)_$(i)", n + 3, "S_$(i)_$(i)", n + 7
-        end
-        for j in (i+1):4
-          for k in 1:4
-            os += U, "S_$(i)_$(j)", n, "S_$(j)_$(i)", n + 4, "S_$(k)_$(k)", n + 2, "S_$(k)_$(k)", n + 6
-            os += U, "S_$(j)_$(i)", n, "S_$(i)_$(j)", n + 4, "S_$(k)_$(k)", n + 2, "S_$(k)_$(k)", n + 6
-            os += U, "S_$(k)_$(k)", n, "S_$(k)_$(k)", n + 4, "S_$(i)_$(j)", n + 2, "S_$(j)_$(i)", n + 6
-            os += U, "S_$(k)_$(k)", n, "S_$(k)_$(k)", n + 4, "S_$(j)_$(i)", n + 2, "S_$(i)_$(j)", n + 6
+  return os
+end
+
+# U perturbations
+function hamiltonian_U(L, U, real_evolution)
+  os = OpSum()
+
+  for n in 1:2:(2*L - 3)
+    for i in 1:3
+      for j in 1:3
+        for k in 1:3
+          for l in 1:3
+            os += U, "S1_$(i)_$(j)", n, "S1_$(j)_$(i)", n + 2, "S2_$(k)_$(l)", n, "S2_$(l)_$(k)", n + 2
+
+            # Apply disentangler exp(iHt) on ancilla sites
             if (real_evolution)
-              os += -U, "S_$(i)_$(j)", n + 1, "S_$(j)_$(i)", n + 5, "S_$(k)_$(k)", n + 3, "S_$(k)_$(k)", n + 7
-              os += -U, "S_$(j)_$(i)", n + 1, "S_$(i)_$(j)", n + 5, "S_$(k)_$(k)", n + 3, "S_$(k)_$(k)", n + 7
-              os += -U, "S_$(k)_$(k)", n + 1, "S_$(k)_$(k)", n + 5, "S_$(i)_$(j)", n + 3, "S_$(j)_$(i)", n + 7
-              os += -U, "S_$(k)_$(k)", n + 1, "S_$(k)_$(k)", n + 5, "S_$(j)_$(i)", n + 3, "S_$(i)_$(j)", n + 7
+              os += -U, "S1_$(i)_$(j)", n + 1, "S1_$(j)_$(i)", n + 3, "S2_$(k)_$(l)", n + 1, "S2_$(l)_$(k)", n + 3
             end
-            for l in (k+1):4
-              os += U, "S_$(i)_$(j)", n, "S_$(j)_$(i)", n + 4, "S_$(k)_$(l)", n + 2, "S_$(l)_$(k)", n + 6
-              os += U, "S_$(j)_$(i)", n, "S_$(i)_$(j)", n + 4, "S_$(k)_$(l)", n + 2, "S_$(l)_$(k)", n + 6
-              os += U, "S_$(i)_$(j)", n, "S_$(j)_$(i)", n + 4, "S_$(l)_$(k)", n + 2, "S_$(k)_$(l)", n + 6
-              os += U, "S_$(j)_$(i)", n, "S_$(i)_$(j)", n + 4, "S_$(l)_$(k)", n + 2, "S_$(k)_$(l)", n + 6
 
-              if (real_evolution)
-                os += -U, "S_$(i)_$(j)", n + 1, "S_$(j)_$(i)", n + 5, "S_$(k)_$(l)", n + 3, "S_$(l)_$(k)", n + 7
-                os += -U, "S_$(j)_$(i)", n + 1, "S_$(i)_$(j)", n + 5, "S_$(k)_$(l)", n + 3, "S_$(l)_$(k)", n + 7
-                os += -U, "S_$(i)_$(j)", n + 1, "S_$(j)_$(i)", n + 5, "S_$(l)_$(k)", n + 3, "S_$(k)_$(l)", n + 7
-                os += -U, "S_$(j)_$(i)", n + 1, "S_$(i)_$(j)", n + 5, "S_$(l)_$(k)", n + 3, "S_$(k)_$(l)", n + 7
-              end
-
-            end
           end
         end
       end
@@ -238,7 +245,7 @@ end
 function magnetization_transfer(L)
   os = OpSum()
 
-  for j in 1:2:(2*L-1)
+  for j in 1:2:(L-1)
     os += -1, "S1z", j
     os += -1, "S2z", j
   end
@@ -250,12 +257,12 @@ end
 function H_dw(L)
   os = OpSum()
 
-  for j in 1:2:(2*L - 1)
+  for j in 1:2:(L - 1)
     os += 1, "S1z", j
     os += 1, "S2z", j
   end
 
-  for j in (2*L+1):2:(4*L - 1)
+  for j in (L+1):2:(2*L - 1)
     os -= 1, "S1z", j
     os -= 1, "S2z", j
   end
@@ -266,11 +273,11 @@ end
 function main(params::SimulationParameters)
   tick()
 
-  c = params.L + 1 # center site
+  c = div(params.L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_su(4)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_reordered.h5"
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_su(4)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
-  # filename = "tdvp_su(4)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_reordered.h5"
+  # filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
+  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
+  filename = "tdvp_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
@@ -283,13 +290,12 @@ function main(params::SimulationParameters)
     close(F)
 
     sites = siteinds(ψ)
-    H_real_cpu = MPO(hamiltonian(params.L, params.U, true), sites)
-    H_real = cu(H_real_cpu)
+    H_real = cu(MPO(hamiltonian(params.L, params.U, true), sites))
+    # H_real_U = cu(MPO(hamiltonian_U(params.L, params.U, true), sites))
   else
-    sites = siteinds("S=3/2", 4 * params.L; conserve_qns=false)
-    H_imag = cu(MPO(hamiltonian(params.L, params.U, false), sites))
-    H_real_cpu = MPO(hamiltonian(params.L, params.U, true), sites)
-    H_real = cu(H_real_cpu)
+    sites = siteinds("SU(3)", 2 * params.L; conserve_qns=false)
+    H_real = cu(MPO(hamiltonian(params.L, params.U, true), sites))
+    # H_real_U = cu(MPO(hamiltonian_U(params.L, params.U, false), sites))
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
     ψ = cu(inf_temp_mps(sites))
@@ -305,24 +311,6 @@ function main(params::SimulationParameters)
         outputlevel=1,
         nsite=2
       )
-    
-    # println(params.ttotal)
-    # println(params.δt)
-    # println(params.δτ)
-    # Cool down to inverse temperature 
-    # for β in δτ:δτ:β_max/2
-    #   @printf("β = %.2f\n", 2*β)
-    #   flush(stdout)
-    #   ψ = tdvp(H_imag, -δτ, ψ;
-    #     nsweeps=1,
-    #     reverse_step=true,
-    #     normalize=true,
-    #     maxdim=params.maxdim,
-    #     cutoff=params.cutoff,
-    #     outputlevel=1,
-    #     nsite=2
-    #   )
-    # end
 
     times = Float64[]
     Z1s = []
@@ -338,15 +326,15 @@ function main(params::SimulationParameters)
       break
     end
 
-    ψ = ITensors.cpu(ψ)
+    # ψ = ITensors.cpu(ψ)
     # H_cpu = ITensors.cpu(H_real)
     # maxlinkdim(ψ) < maxdim ? nsite = 2 : nsite = 1
     # if (maxlinkdim(ψ) < params.maxdim)
-    if (maxlinkdim(ψ) == 4)
+    # if (maxlinkdim(ψ) == 9)
       # @time ψ = basis_extend(ψ, H_real_cpu; cutoff, extension_krylovdim=2)
-      @time ψ = expand(ψ, H_real_cpu; alg="global_krylov", params.cutoff, krylovdim=10)
-    end
-    ψ = cu(ψ)
+    #   @time ψ = expand(ψ, H_real_cpu; alg="global_krylov", params.cutoff, krylovdim=2)
+    # end
+    # ψ = cu(ψ)
 
     ψ = tdvp(H_real, -im * params.δt, ψ;
       nsweeps=1,
@@ -359,8 +347,8 @@ function main(params::SimulationParameters)
     )
     GC.gc()
 
-    Z1 = expect(ψ, "S1z"; sites=1:2:(4*params.L-1))
-    Z2 = expect(ψ, "S2z"; sites=1:2:(4*params.L-1))
+    Z1 = expect(ψ, "S1z"; sites=1:2:(2*params.L-1))
+    Z2 = expect(ψ, "S2z"; sites=1:2:(2*params.L-1))
     S = entropy_von_neumann(ITensors.cpu(ψ), 2*params.L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
     # @time M_moment = moments(L, ψ, sites, cutoff, maxdim)
 

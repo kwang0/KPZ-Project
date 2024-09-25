@@ -182,76 +182,59 @@ for i in 1:N_hilbert
   end
 end
 
-function hamiltonian(L, U, real_evolution)
-  os = OpSum()
+function ITensors.op(::OpName"U(t)", ::SiteType"SU(3)", s1::Index, s2::Index; t, U)
+  h = ITensor()
 
-  for n in 1:2:(2*L - 3)
-    
-    # Adding P terms
-    for i in 1:3
-      for j in 1:3
-        os += 1.0, "S1_$(i)_$(j)", n, "S1_$(j)_$(i)", n + 2
-        os += 1.0, "S2_$(i)_$(j)", n, "S2_$(j)_$(i)", n + 2
+  for i in 1:3
+    for j in 1:3
+      h += op("S1_$(i)_$(j)", s1) * op("S1_$(j)_$(i)", s2)
+      h += op("S2_$(i)_$(j)", s1) * op("S2_$(j)_$(i)", s2)
 
-        # Apply disentangler exp(iHt) on ancilla sites
-        if (real_evolution)
-          os += -1.0, "S1_$(i)_$(j)", n + 1, "S1_$(j)_$(i)", n + 3
-          os += -1.0, "S2_$(i)_$(j)", n + 1, "S2_$(j)_$(i)", n + 3
-        end
+      for k in 1:3
+        for l in 1:3
+          h += replaceprime(U * op("S1_$(i)_$(j)", s1') * op("S1_$(j)_$(i)", s2') * op("S2_$(k)_$(l)", s1) * op("S2_$(l)_$(k)", s2), 2, 1)
 
-        # for k in 1:3
-        #   for l in 1:3
-        #     os += U, "S1_$(i)_$(j)", n, "S1_$(j)_$(i)", n + 2, "S2_$(k)_$(l)", n, "S2_$(l)_$(k)", n + 2
-
-        #     # Apply disentangler exp(iHt) on ancilla sites
-        #     if (real_evolution)
-        #       os += -U, "S1_$(i)_$(j)", n + 1, "S1_$(j)_$(i)", n + 3, "S2_$(k)_$(l)", n + 1, "S2_$(l)_$(k)", n + 3
-        #     end
-
-        #   end
-        # end
-      end
-    end
-  end
-
-  return os
-end
-
-# U perturbations
-function hamiltonian_U(L, U, real_evolution)
-  os = OpSum()
-
-  for n in 1:2:(2*L - 3)
-    for i in 1:3
-      for j in 1:3
-        for k in 1:3
-          for l in 1:3
-            os += U, "S1_$(i)_$(j)", n, "S1_$(j)_$(i)", n + 2, "S2_$(k)_$(l)", n, "S2_$(l)_$(k)", n + 2
-
-            # Apply disentangler exp(iHt) on ancilla sites
-            if (real_evolution)
-              os += -U, "S1_$(i)_$(j)", n + 1, "S1_$(j)_$(i)", n + 3, "S2_$(k)_$(l)", n + 1, "S2_$(l)_$(k)", n + 3
-            end
-
-          end
         end
       end
     end
   end
-
-  return os
+  
+  return cu(exp(-im * t * h))
 end
 
-# Measure total magnetization in left half
-function magnetization_transfer(L)
-  os = OpSum()
+function fourth_order_trotter_gates(L, sites, δt, U, real_evolution)
+  a1 = 0.095848502741203681182
+  a2 = -0.078111158921637922695
+  a3 = 0.5 - (a1 + a2)
+  b1 = 0.42652466131587616168
+  b2 = -0.12039526945509726545
+  b3 = 1 - 2 * (b1 + b2)
 
-  for j in 1:2:(L-1)
-    os += -1, "S1z", j
-    os += -1, "S2z", j
+  A1 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=a1*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+  B1 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=b1*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+  A2 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=a2*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+  B2 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=b2*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+  A3 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=a3*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+  B3 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=b3*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+
+  if (real_evolution)
+    # Apply disentangler exp(iHt) on ancilla sites
+    aA1 = ops([("U(t)", (2*n, 2*n + 2), (t=-a1*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+    aB1 = ops([("U(t)", (2*n, 2*n + 2), (t=-b1*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+    aA2 = ops([("U(t)", (2*n, 2*n + 2), (t=-a2*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+    aB2 = ops([("U(t)", (2*n, 2*n + 2), (t=-b2*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+    aA3 = ops([("U(t)", (2*n, 2*n + 2), (t=-a3*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+    aB3 = ops([("U(t)", (2*n, 2*n + 2), (t=-b3*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+
+    A1 = vcat(A1,aA1)
+    B1 = vcat(B1,aB1)
+    A2 = vcat(A2,aA2)
+    B2 = vcat(B2,aB2)
+    A3 = vcat(A3,aA3)
+    B3 = vcat(B3,aB3)
   end
 
-  return os
+  return vcat(A1,B1,A2,B2,A3,B3,A3,B2,A2,B1,A1)
 end
 
 # Adding "Zeeman terms" to produce domain wall density matrix
@@ -276,9 +259,8 @@ function main(params::SimulationParameters)
 
   c = div(params.L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_split_convert.h5"
-  # filename = "/global/scratch/users/kwang98/KPZ/tdvp_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
-  # filename = "tdvp_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
+  # filename = "tebd_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
@@ -291,12 +273,10 @@ function main(params::SimulationParameters)
     close(F)
 
     sites = siteinds(ψ)
-    H_real = cu(MPO(hamiltonian(params.L, params.U, true), sites))
-    H_real_U = cu(MPO(hamiltonian_U(params.L, params.U, true), sites))
+    real_gates = fourth_order_trotter_gates(params.L, sites, params.δt, params.U, true)
   else
     sites = siteinds("SU(3)", 2 * params.L; conserve_qns=false)
-    H_real = cu(MPO(hamiltonian(params.L, params.U, true), sites))
-    H_real_U = cu(MPO(hamiltonian_U(params.L, params.U, false), sites))
+    real_gates = fourth_order_trotter_gates(params.L, sites, params.δt, params.U, true)
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
     ψ = cu(inf_temp_mps(sites))
@@ -327,25 +307,7 @@ function main(params::SimulationParameters)
       break
     end
 
-    # ψ = ITensors.cpu(ψ)
-    # H_cpu = ITensors.cpu(H_real)
-    # maxlinkdim(ψ) < maxdim ? nsite = 2 : nsite = 1
-    # if (maxlinkdim(ψ) < params.maxdim)
-    # if (maxlinkdim(ψ) == 9)
-      # @time ψ = basis_extend(ψ, H_real_cpu; cutoff, extension_krylovdim=2)
-    #   @time ψ = expand(ψ, H_real_cpu; alg="global_krylov", params.cutoff, krylovdim=2)
-    # end
-    # ψ = cu(ψ)
-
-    ψ = tdvp([H_real, H_real_U], -im * params.δt, ψ;
-      nsweeps=1,
-      reverse_step=true,
-      normalize=false,
-      maxdim=params.maxdim,
-      cutoff=params.cutoff,
-      outputlevel=1,
-      nsite=2
-    )
+    @time ψ = apply(real_gates, ψ; params.cutoff, params.maxdim)
     GC.gc()
 
     Z1 = expect(ψ, "S1z"; sites=1:2:(2*params.L-1))

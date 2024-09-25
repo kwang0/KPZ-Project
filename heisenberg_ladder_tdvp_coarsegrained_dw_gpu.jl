@@ -471,7 +471,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     # @time ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
     # end
 
-    ψ = tdvp(H_real, -im * δt, ψ;
+    ψ = tdvp(solver, H_real, -im * δt, ψ;
       nsweeps=1,
       reverse_step=true,
       normalize=false,

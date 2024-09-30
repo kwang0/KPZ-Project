@@ -1,3 +1,5 @@
+using MKL # Nvidia usage
+using CUDA # Nvidia usage
 using ITensors
 using ITensorTDVP
 using Printf
@@ -10,18 +12,18 @@ using Base.Threads
 struct SimulationParameters
   L::Int64
   maxdim::Int64
-  cutoff::Float64
-  β_max::Float64
-  δt::Float64
-  ttotal::Float64
-  δτ::Float64
-  U::Float64
-  μ::Float64
+  cutoff::Float32
+  β_max::Float32
+  δt::Float32
+  ttotal::Float32
+  δτ::Float32
+  U::Float32
+  μ::Float32
   num_threads::Int64
 end
 
 function solver(H, t, psi0; kwargs...)
-    tol_per_unit_time = get(kwargs, :solver_tol, 1e-8)
+    tol_per_unit_time = get(kwargs, :solver_tol, 1f-8)
     solver_kwargs = (;
         maxiter=get(kwargs, :solver_krylovdim, 30),
         outputlevel=get(kwargs, :solver_outputlevel, 0),
@@ -57,7 +59,7 @@ function find_lambdas(ψ)
   # rightind = commonind(V,ϕ[1])
   # linkind = commonind(ψ[1], ψ[2])
   # replaceinds!(V, [rightind], [linkind])
-  push!(Λs, S*V)
+  push!(Λs, cu(S*V))
   for i in 2:(N-1)
     ϕ = orthogonalize(ϕ, i)
     U,S,V = svd(ϕ[i], (commonind(ϕ[i-1], ϕ[i]), sites[i]))
@@ -65,7 +67,7 @@ function find_lambdas(ψ)
     # rightind = commonind(S,V)
     # linkind = commonind(ψ[i-1], ψ[i])
     # replaceinds!(S, [leftind], [linkind])
-    push!(Λs, S*V)
+    push!(Λs, cu(S*V))
   end
 
   return Λs
@@ -98,7 +100,7 @@ function inf_temp_mps(sites)
           A[s1=>i, s2=>(10-i), rightlink => 1] = 1/3
         end
 
-        U,S,V = svd(A, (s1), cutoff=1e-16, lefttags="Link,l=$(j)")
+        U,S,V = svd(A, (s1), cutoff=1f-16, lefttags="Link,l=$(j)")
         ψ[j] = U
         ψ[j+1] = S*V
 
@@ -110,7 +112,7 @@ function inf_temp_mps(sites)
           A[s1=>i, s2=>(10-i), leftlink => 1] = 1/3
         end
 
-        U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
+        U,S,V = svd(A, (s1, leftlink), cutoff=1f-16, lefttags="Link,l=$(j)")
         ψ[j] = U
         ψ[j+1] = S*V
         
@@ -124,7 +126,7 @@ function inf_temp_mps(sites)
           A[s1=>i, s2=>(10-i), rightlink=>1, leftlink => 1] = 1/3
         end
 
-        U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
+        U,S,V = svd(A, (s1, leftlink), cutoff=1f-16, lefttags="Link,l=$(j)")
         ψ[j] = U
         ψ[j+1] = S*V
       end
@@ -225,9 +227,10 @@ function ITensors.op(::OpName"U(t)", ::SiteType"SU(3)", s1::Index, s2::Index; t,
     end
   end
   
-  return exp(-im * t * h)
+  return cu(exp(-im * t * h))
 end
 
+# Update block using swap SVDs (seems to lead to large errors)
 function updateblock(ψ, sites, i, Λs, W1, W2, cut, m)
   W1 = replaceinds(W1, [sites[1],sites[1]',sites[3],sites[3]'], [sites[i],sites[i]',sites[i+2],sites[i+2]'])
   W2 = replaceinds(W2, [sites[2],sites[2]',sites[4],sites[4]'], [sites[i+1],sites[i+1]',sites[i+3],sites[i+3]'])
@@ -314,6 +317,7 @@ function updateblock(ψ, sites, i, Λs, W1, W2, cut, m)
   Λs[i+1] = S
 end
 
+# Update block by fully contracting four-site block and applying gates
 # function updateblock(ψ, sites, i, Λs, W1, W2, cut, m)
 #   Φ_bar = ψ[i] * ψ[i+1] * ψ[i+2] * ψ[i+3]
 #   W1 = replaceinds(W1, [sites[1],sites[1]',sites[3],sites[3]'], [sites[i],sites[i]',sites[i+2],sites[i+2]'])
@@ -381,7 +385,7 @@ end
 #   end
 # end
 
-function trotter_sweep(ψ::MPS, sites, Λs::Vector{ITensor}, W1::ITensor, W2::ITensor, cut::Float64, m::Int, even::Bool)
+function trotter_sweep(ψ::MPS, sites, Λs::Vector{ITensor}, W1::ITensor, W2::ITensor, cut::Float32, m::Int, even::Bool)
   N = length(ψ)
   start_idx = even ? 1 : 3
   end_idx = even ? N-3 : N-5
@@ -419,18 +423,18 @@ function create_gate_list(sites, δt, U)
   W1s = []
   W2s = []
 
-  push!(W1s, op("U(t)", sites[1], sites[3], t = a1*δt, U=U))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -a1*δt, U=U))
-  push!(W1s, op("U(t)", sites[1], sites[3], t = b1*δt, U=U))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -b1*δt, U=U))
-  push!(W1s, op("U(t)", sites[1], sites[3], t = a2*δt, U=U))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -a2*δt, U=U))
-  push!(W1s, op("U(t)", sites[1], sites[3], t = b2*δt, U=U))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -b2*δt, U=U))
-  push!(W1s, op("U(t)", sites[1], sites[3], t = a3*δt, U=U))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -a3*δt, U=U))
-  push!(W1s, op("U(t)", sites[1], sites[3], t = b3*δt, U=U))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -b3*δt, U=U))
+  push!(W1s, cu(op("U(t)", sites[1], sites[3], t = a1*δt, U=U)))
+  push!(W2s, cu(op("U(t)", sites[2], sites[4], t = -a1*δt, U=U)))
+  push!(W1s, cu(op("U(t)", sites[1], sites[3], t = b1*δt, U=U)))
+  push!(W2s, cu(op("U(t)", sites[2], sites[4], t = -b1*δt, U=U)))
+  push!(W1s, cu(op("U(t)", sites[1], sites[3], t = a2*δt, U=U)))
+  push!(W2s, cu(op("U(t)", sites[2], sites[4], t = -a2*δt, U=U)))
+  push!(W1s, cu(op("U(t)", sites[1], sites[3], t = b2*δt, U=U)))
+  push!(W2s, cu(op("U(t)", sites[2], sites[4], t = -b2*δt, U=U)))
+  push!(W1s, cu(op("U(t)", sites[1], sites[3], t = a3*δt, U=U)))
+  push!(W2s, cu(op("U(t)", sites[2], sites[4], t = -a3*δt, U=U)))
+  push!(W1s, cu(op("U(t)", sites[1], sites[3], t = b3*δt, U=U)))
+  push!(W2s, cu(op("U(t)", sites[2], sites[4], t = -b3*δt, U=U)))
 
   return W1s, W2s
 end
@@ -457,7 +461,7 @@ function main(params::SimulationParameters)
 
   c = div(params.L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_su(3)_dw_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_threaded$(params.num_threads).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_threaded$(params.num_threads).h5"
   # filename = "tebd_su(3)_dw_MPI_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
 
   if (isfile(filename))
@@ -466,7 +470,7 @@ function main(params::SimulationParameters)
     Z1s = read(F, "Z1s")
     Z2s = read(F, "Z2s")
     Ss = read(F, "Ss")
-    ψ = read(F, "psi", MPS)
+    ψ = cu(read(F, "psi", MPS))
     start_time = last(times) + params.δt
     close(F)
 
@@ -479,11 +483,11 @@ function main(params::SimulationParameters)
     W1s, W2s = create_gate_list(sites, params.δt, params.U)
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
-    ψ = inf_temp_mps(sites)
+    ψ = cu(inf_temp_mps(sites))
     # ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
   
     # Create initial domain wall state
-    ψ = tdvp(MPO(H_dw(params.L), sites), params.μ, ψ;
+    ψ = tdvp(cu(MPO(H_dw(params.L), sites)), params.μ, ψ;
         nsweeps=1,
         reverse_step=true,
         normalize=true,
@@ -495,7 +499,7 @@ function main(params::SimulationParameters)
     orthogonalize!(ψ, 1)
     Λs = find_lambdas(ψ)
 
-    times = Float64[]
+    times = Float32[]
     Z1s = []
     Z2s = []
     Ss = []
@@ -547,22 +551,22 @@ BLAS.set_num_threads(1)
 params = SimulationParameters(
     parse(Int64, ARGS[1]),    # L
     parse(Int64, ARGS[2]),    # maxdim
-    1e-16,                    # cutoff
-    parse(Float64, ARGS[3]),  # β_max
-    parse(Float64, ARGS[4]),  # δt
+    1f-16,                    # cutoff
+    parse(Float32, ARGS[3]),  # β_max
+    parse(Float32, ARGS[4]),  # δt
     100.0,                    # ttotal (or parse from ARGS if it's an input)
     0.05,                     # δτ (or parse from ARGS if it's an input)
-    parse(Float64, ARGS[5]),  # U
-    parse(Float64, ARGS[6]),  # μ
+    parse(Float32, ARGS[5]),  # U
+    parse(Float32, ARGS[6]),  # μ
     parse(Int64, ARGS[7])     # num_threads
 )
 
 # L = parse(Int64, ARGS[1])
 # maxdim = parse(Int64, ARGS[2])
-# β_max = parse(Float64, ARGS[3])
-# δt = parse(Float64, ARGS[4])
-# U = parse(Float64, ARGS[5])
-# μ = parse(Float64, ARGS[6])
+# β_max = parse(Float32, ARGS[3])
+# δt = parse(Float32, ARGS[4])
+# U = parse(Float32, ARGS[5])
+# μ = parse(Float32, ARGS[6])
 
 # main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, U=U, μ=μ)
 main(params)

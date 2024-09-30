@@ -64,9 +64,8 @@ function find_lambdas(ψ)
     ϕ = orthogonalize(ϕ, i)
     U,S,V = svd(ϕ[i], (commonind(ϕ[i-1], ϕ[i]), sites[i]))
     # leftind = commonind(U,S)
-    # rightind = commonind(S,V)
     # linkind = commonind(ψ[i-1], ψ[i])
-    # replaceinds!(S, [leftind], [linkind])
+    # replaceinds!(S, [leftind], [linkind'])
     push!(Λs, cu(S*V))
   end
 
@@ -231,90 +230,140 @@ function ITensors.op(::OpName"U(t)", ::SiteType"SU(3)", s1::Index, s2::Index; t,
 end
 
 # Update block using swap SVDs (seems to lead to large errors)
+# function updateblock(ψ, sites, i, Λs, W1, W2, cut, m)
+#   W1 = replaceinds(W1, [sites[1],sites[1]',sites[3],sites[3]'], [sites[i],sites[i]',sites[i+2],sites[i+2]'])
+#   W2 = replaceinds(W2, [sites[2],sites[2]',sites[4],sites[4]'], [sites[i+1],sites[i+1]',sites[i+3],sites[i+3]'])
+
+#   # Swap middle two sites
+#   Φ_bar = ψ[i+1] * ψ[i+2]
+#   Φ = noprime(Λs[i] * Φ_bar)
+#   # leftlink = dag(commonind(ψ[i], Φ))
+#   U,S,V = svd(Φ, (sites[i+2], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)", min_blockdim=1)
+#   B3 = V
+#   B2 = Φ_bar * dag(V)
+#   # leftind = commonind(U,S)
+#   # rightind = commonind(S,V)
+#   # replaceind!(S, leftind, rightind')
+#   Λs[i+1] = S
+
+#   if (i == 1)
+#     # Apply W1 to physical sites after swap
+#     Φ_bar = ψ[i] * B2
+#     Φ_bar = apply(W1, Φ_bar)
+#     Φ = Φ_bar
+
+#     U,S,V = svd(Φ, (sites[i]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)", min_blockdim=1)
+#     B2 = V
+#     ψ[i] = Φ_bar * dag(V)
+#     # leftind = commonind(U,S)
+#     # rightind = commonind(S,V)
+#     # replaceind!(S, leftind, rightind') # Priming the left side of Lambda, same index as right
+#     Λs[i] = S
+
+#     # Apply W2 to ancilla sites after swap
+#     Φ_bar = B3 * ψ[i+3]
+#     Φ_bar = apply(W2, Φ_bar)
+#     Φ = noprime(Λs[i+1] * Φ_bar)
+
+#     # leftlink = dag(commonind(B2, Φ))
+#     U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)", min_blockdim=1)
+#     ψ[i+3] = V
+#     B3 = Φ_bar * dag(V)
+#     # leftind = commonind(U,S)
+#     # rightind = commonind(S,V)
+#     # replaceind!(S, leftind, rightind')
+#     Λs[i+2] = S
+#   else
+#     # Apply W1 to physical sites after swap
+#     Φ_bar = ψ[i] * B2
+#     Φ_bar = apply(W1, Φ_bar)
+#     Φ = noprime(Λs[i-1] * Φ_bar) # Priming the left side of Lambda, same index as right
+
+#     # leftlink = dag(commonind(ψ[i-1], Φ))
+#     U,S,V = svd(Φ, (sites[i], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)", min_blockdim=1)
+#     B2 = V
+#     ψ[i] = Φ_bar * dag(V)
+#     # leftind = commonind(U,S)
+#     # rightind = commonind(S,V)
+#     # replaceind!(S, leftind, rightind') # Priming the left side of Lambda, same index as right
+#     Λs[i] = S
+
+#     # Apply W2 to ancilla sites after swap
+#     Φ_bar = B3 * ψ[i+3]
+#     Φ_bar = apply(W2, Φ_bar)
+#     Φ = noprime(Λs[i+1] * Φ_bar)
+
+#     # leftlink = dag(commonind(B2, Φ))
+#     U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)", min_blockdim=1)
+#     ψ[i+3] = V
+#     B3 = Φ_bar * dag(V)
+#     # leftind = commonind(U,S)
+#     # rightind = commonind(S,V)
+#     # replaceind!(S, leftind, rightind')
+#     Λs[i+2] = S
+#   end
+  
+#   # Swap middle two sites back
+#   Φ_bar = B2 * B3
+#   Φ = noprime(Λs[i] * Φ_bar)
+#   # leftlink = dag(commonind(ψ[i], Φ))
+#   U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)", min_blockdim=1)
+#   ψ[i+2] = V
+#   ψ[i+1] = Φ_bar * dag(V)
+#   # leftind = commonind(U,S)
+#   # rightind = commonind(S,V)
+#   # replaceind!(S, leftind, rightind')
+#   Λs[i+1] = S
+# end
+
+# Update block only contracting three-site blocks at a time
 function updateblock(ψ, sites, i, Λs, W1, W2, cut, m)
+  Φ_bar = ψ[i+1] * ψ[i+2] * ψ[i+3]
   W1 = replaceinds(W1, [sites[1],sites[1]',sites[3],sites[3]'], [sites[i],sites[i]',sites[i+2],sites[i+2]'])
   W2 = replaceinds(W2, [sites[2],sites[2]',sites[4],sites[4]'], [sites[i+1],sites[i+1]',sites[i+3],sites[i+3]'])
-
-  # Swap middle two sites
-  Φ_bar = ψ[i+1] * ψ[i+2]
+  Φ_bar = apply(W2, Φ_bar)
   Φ = noprime(Λs[i] * Φ_bar)
-  # leftlink = dag(commonind(ψ[i], Φ))
-  U,S,V = svd(Φ, (sites[i+2], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)", min_blockdim=1)
-  B3 = V
-  B2 = Φ_bar * dag(V)
-  # leftind = commonind(U,S)
-  # rightind = commonind(S,V)
-  # replaceind!(S, leftind, rightind')
-  Λs[i+1] = S
 
   if (i == 1)
-    # Apply W1 to physical sites after swap
-    Φ_bar = ψ[i] * B2
+    # leftlink = dag(commonind(ψ[i], Φ))
+    U,S,V = svd(Φ, (sites[i+1], sites[i+2], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)")
+    ψ[i+3] = V
+    Λs[i+2] = S
+    Φ_bar = ψ[i] * Φ_bar * dag(V)
     Φ_bar = apply(W1, Φ_bar)
     Φ = Φ_bar
 
-    U,S,V = svd(Φ, (sites[i]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)", min_blockdim=1)
-    B2 = V
+    U,S,V = svd(Φ, (sites[i], sites[i+1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)")
+    ψ[i+2] = V
+    Λs[i+1] = S
+    Φ = U*S
+    Φ_bar = Φ_bar * dag(V)
+
+    U,S,V = svd(Φ, (sites[i]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)")
+    ψ[i+1] = V
     ψ[i] = Φ_bar * dag(V)
-    # leftind = commonind(U,S)
-    # rightind = commonind(S,V)
-    # replaceind!(S, leftind, rightind') # Priming the left side of Lambda, same index as right
     Λs[i] = S
-
-    # Apply W2 to ancilla sites after swap
-    Φ_bar = B3 * ψ[i+3]
-    Φ_bar = apply(W2, Φ_bar)
-    Φ = noprime(Λs[i+1] * Φ_bar)
-
-    # leftlink = dag(commonind(B2, Φ))
-    U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)", min_blockdim=1)
-    ψ[i+3] = V
-    B3 = Φ_bar * dag(V)
-    # leftind = commonind(U,S)
-    # rightind = commonind(S,V)
-    # replaceind!(S, leftind, rightind')
-    Λs[i+2] = S
   else
-    # Apply W1 to physical sites after swap
-    Φ_bar = ψ[i] * B2
+    # leftlink = dag(commonind(ψ[i], Φ))
+    U,S,V = svd(Φ, (sites[i+1], sites[i+2], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)")
+    ψ[i+3] = V
+    Λs[i+2] = S
+    Φ_bar = ψ[i] * Φ_bar * dag(V)
     Φ_bar = apply(W1, Φ_bar)
-    Φ = noprime(Λs[i-1] * Φ_bar) # Priming the left side of Lambda, same index as right
+    Φ = noprime(Λs[i-1] * Φ_bar)
 
     # leftlink = dag(commonind(ψ[i-1], Φ))
-    U,S,V = svd(Φ, (sites[i], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)", min_blockdim=1)
-    B2 = V
+    U,S,V = svd(Φ, (sites[i], sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)")
+    ψ[i+2] = V
+    Λs[i+1] = S
+    Φ = U*S
+    Φ_bar = Φ_bar * dag(V)
+
+    U,S,V = svd(Φ, (sites[i], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)")
+    ψ[i+1] = V
     ψ[i] = Φ_bar * dag(V)
-    # leftind = commonind(U,S)
-    # rightind = commonind(S,V)
-    # replaceind!(S, leftind, rightind') # Priming the left side of Lambda, same index as right
     Λs[i] = S
-
-    # Apply W2 to ancilla sites after swap
-    Φ_bar = B3 * ψ[i+3]
-    Φ_bar = apply(W2, Φ_bar)
-    Φ = noprime(Λs[i+1] * Φ_bar)
-
-    # leftlink = dag(commonind(B2, Φ))
-    U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)", min_blockdim=1)
-    ψ[i+3] = V
-    B3 = Φ_bar * dag(V)
-    # leftind = commonind(U,S)
-    # rightind = commonind(S,V)
-    # replaceind!(S, leftind, rightind')
-    Λs[i+2] = S
   end
-  
-  # Swap middle two sites back
-  Φ_bar = B2 * B3
-  Φ = noprime(Λs[i] * Φ_bar)
-  # leftlink = dag(commonind(ψ[i], Φ))
-  U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)", min_blockdim=1)
-  ψ[i+2] = V
-  ψ[i+1] = Φ_bar * dag(V)
-  # leftind = commonind(U,S)
-  # rightind = commonind(S,V)
-  # replaceind!(S, leftind, rightind')
-  Λs[i+1] = S
 end
 
 # Update block by fully contracting four-site block and applying gates

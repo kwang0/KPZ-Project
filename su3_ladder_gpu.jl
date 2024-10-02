@@ -199,17 +199,17 @@ function hamiltonian(L, U, real_evolution)
           os += -1.0, "S2_$(i)_$(j)", n + 1, "S2_$(j)_$(i)", n + 3
         end
 
-        # for k in 1:3
-        #   for l in 1:3
-        #     os += U, "S1_$(i)_$(j)", n, "S1_$(j)_$(i)", n + 2, "S2_$(k)_$(l)", n, "S2_$(l)_$(k)", n + 2
+        for k in 1:3
+          for l in 1:3
+            os += U, "S1_$(i)_$(j)", n, "S1_$(j)_$(i)", n + 2, "S2_$(k)_$(l)", n, "S2_$(l)_$(k)", n + 2
 
-        #     # Apply disentangler exp(iHt) on ancilla sites
-        #     if (real_evolution)
-        #       os += -U, "S1_$(i)_$(j)", n + 1, "S1_$(j)_$(i)", n + 3, "S2_$(k)_$(l)", n + 1, "S2_$(l)_$(k)", n + 3
-        #     end
+            # Apply disentangler exp(iHt) on ancilla sites
+            if (real_evolution)
+              os += -U, "S1_$(i)_$(j)", n + 1, "S1_$(j)_$(i)", n + 3, "S2_$(k)_$(l)", n + 1, "S2_$(l)_$(k)", n + 3
+            end
 
-        #   end
-        # end
+          end
+        end
       end
     end
   end
@@ -292,11 +292,11 @@ function main(params::SimulationParameters)
 
     sites = siteinds(ψ)
     H_real = cu(MPO(hamiltonian(params.L, params.U, true), sites))
-    H_real_U = cu(MPO(hamiltonian_U(params.L, params.U, true), sites))
+    # H_real_U = cu(MPO(hamiltonian_U(params.L, params.U, true), sites))
   else
     sites = siteinds("SU(3)", 2 * params.L; conserve_qns=false)
     H_real = cu(MPO(hamiltonian(params.L, params.U, true), sites))
-    H_real_U = cu(MPO(hamiltonian_U(params.L, params.U, false), sites))
+    # H_real_U = cu(MPO(hamiltonian_U(params.L, params.U, false), sites))
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
     ψ = cu(inf_temp_mps(sites))
@@ -337,7 +337,7 @@ function main(params::SimulationParameters)
     # end
     # ψ = cu(ψ)
 
-    ψ = tdvp([H_real, H_real_U], -im * params.δt, ψ;
+    ψ = tdvp(H_real, -im * params.δt, ψ;
       nsweeps=1,
       reverse_step=true,
       normalize=false,

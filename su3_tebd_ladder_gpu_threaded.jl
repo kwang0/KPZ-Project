@@ -510,7 +510,7 @@ function main(params::SimulationParameters)
 
   c = div(params.L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_threaded$(params.num_threads).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_threaded$(params.num_threads)_float32cutoff.h5"
   # filename = "tebd_su(3)_dw_MPI_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
 
   if (isfile(filename))
@@ -543,7 +543,7 @@ function main(params::SimulationParameters)
         maxdim=params.maxdim,
         cutoff=params.cutoff,
         outputlevel=1,
-        nsite=2
+        nsite=1
       )
     orthogonalize!(ψ, 1)
     Λs = find_lambdas(ψ)
@@ -571,6 +571,7 @@ function main(params::SimulationParameters)
     # @time M_moment = moments(L, ψ, sites, cutoff, maxdim)
 
     println("Time = $t")
+    println("Max bond dimension = $(maxlinkdim(ψ))")
     flush(stdout)
     push!(times, t)
     t == params.δt ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
@@ -600,7 +601,7 @@ BLAS.set_num_threads(1)
 params = SimulationParameters(
     parse(Int64, ARGS[1]),    # L
     parse(Int64, ARGS[2]),    # maxdim
-    1f-16,                    # cutoff
+    1f-8,                     # cutoff
     parse(Float32, ARGS[3]),  # β_max
     parse(Float32, ARGS[4]),  # δt
     100.0,                    # ttotal (or parse from ARGS if it's an input)

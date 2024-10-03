@@ -10,6 +10,6 @@
 export SLURM_CPU_BIND="cores"
 export JULIA_CUDA_SOFT_MEMORY_LIMIT=50%
 
-julia -t $8 $1 $2 $3 $4 $5 $6 $7 $8 > logs_jl/tebd_su3_dw_gpu_L${2}_chi${3}_beta${4}_dt${5}_U${6}_mu${7}_threaded${8}.txt
+julia -t $8 $1 $2 $3 $4 $5 $6 $7 $8 > logs_jl/tebd_su3_dw_gpu_L${2}_chi${3}_beta${4}_dt${5}_U${6}_mu${7}_threaded${8}_float32cutoff.txt
 
 exit 0

@@ -276,7 +276,7 @@ function main(params::SimulationParameters)
 
   c = div(params.L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_split_convert.h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
   # filename = "tdvp_su(3)_dw_gpu_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
 
@@ -310,7 +310,7 @@ function main(params::SimulationParameters)
         maxdim=params.maxdim,
         cutoff=params.cutoff,
         outputlevel=1,
-        nsite=2
+        nsite=1
       )
 
     times = Float32[]
@@ -337,6 +337,8 @@ function main(params::SimulationParameters)
     # end
     # ψ = cu(ψ)
 
+    numsite = (linkdims(ψ)[3] == params.maxdim) ? 1 : 2
+
     ψ = tdvp(H_real, -im * params.δt, ψ;
       nsweeps=1,
       reverse_step=true,
@@ -344,7 +346,7 @@ function main(params::SimulationParameters)
       maxdim=params.maxdim,
       cutoff=params.cutoff,
       outputlevel=1,
-      nsite=2
+      nsite=numsite
     )
     GC.gc()
 
@@ -383,7 +385,7 @@ BLAS.set_num_threads(1)
 params = SimulationParameters(
     parse(Int64, ARGS[1]),    # L
     parse(Int64, ARGS[2]),    # maxdim
-    1f-16,                    # cutoff
+    1f-16,                     # cutoff
     parse(Float32, ARGS[3]),  # β_max
     parse(Float32, ARGS[4]),  # δt
     100.0,                    # ttotal (or parse from ARGS if it's an input)

@@ -564,6 +564,7 @@ function main(params::SimulationParameters)
     # @time M_moment = moments(L, ψ, sites, cutoff, maxdim)
 
     println("Time = $t")
+    println("Max bond dimension = $(maxlinkdim(ψ))")
     flush(stdout)
     push!(times, t)
     t == params.δt ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
@@ -593,7 +594,7 @@ BLAS.set_num_threads(1)
 params = SimulationParameters(
     parse(Int64, ARGS[1]),    # L
     parse(Int64, ARGS[2]),    # maxdim
-    1f-16,                    # cutoff
+    1f-7,                     # cutoff
     parse(Float32, ARGS[3]),  # β_max
     parse(Float32, ARGS[4]),  # δt
     100.0,                    # ttotal (or parse from ARGS if it's an input)

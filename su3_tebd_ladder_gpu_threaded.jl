@@ -140,15 +140,15 @@ function ITensors.space(::SiteType"SU(3)";
   conserve_qns=false)
   if conserve_qns
     return [
-      QN("Sz", 2) => 1
-      QN("Sz", 1) => 1
-      QN("Sz", 0) => 1
-      QN("Sz", 1) => 1
-      QN("Sz", 0) => 1
-      QN("Sz", -1) => 1
-      QN("Sz", 0) => 1
-      QN("Sz", -1) => 1
-      QN("Sz", -2) => 1
+      QN(("Q1", 2), ("Q2", 2)) => 1
+      QN(("Q1", 1), ("Q2", 0)) => 1
+      QN(("Q1", 0), ("Q2", 1)) => 1
+      QN(("Q1", 1), ("Q2", 0)) => 1
+      QN(("Q1", 0), ("Q2", -2)) => 1
+      QN(("Q1", -1), ("Q2", -1)) => 1
+      QN(("Q1", 0), ("Q2", 1)) => 1
+      QN(("Q1", -1), ("Q2", -1)) => 1
+      QN(("Q1", -2), ("Q2", 0)) => 1
     ]
   end
   return 9

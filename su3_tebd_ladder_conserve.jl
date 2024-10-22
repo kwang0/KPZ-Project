@@ -17,7 +17,6 @@ struct SimulationParameters
   δτ::Float64
   U::Float64
   μ::Float64
-  num_threads::Int64
 end
 
 function solver(H, t, psi0; kwargs...)
@@ -92,7 +91,7 @@ function inf_temp_mps(sites)
           
       if(j == 1)
         rightlink = commonind(ψ[j+1],ψ[j+2])
-        A = ITensor(ComplexF32, s1, s2, rightlink)
+        A = ITensor(ComplexF64, s1, s2, rightlink)
 
         for i in 1:9
           A[s1=>i, s2=>(10-i), rightlink => 1] = 1/3
@@ -104,7 +103,7 @@ function inf_temp_mps(sites)
 
       elseif (j == num_sites-1)
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
-        A = ITensor(ComplexF32, s1, s2, leftlink)
+        A = ITensor(ComplexF64, s1, s2, leftlink)
 
         for i in 1:9
           A[s1=>i, s2=>(10-i), leftlink => 1] = 1/3
@@ -118,7 +117,7 @@ function inf_temp_mps(sites)
         rightlink = commonind(ψ[j+1], ψ[j+2])
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
     
-        A = ITensor(ComplexF32, s1, s2, rightlink, leftlink)
+        A = ITensor(ComplexF64, s1, s2, rightlink, leftlink)
 
         for i in 1:9
           A[s1=>i, s2=>(10-i), rightlink=>1, leftlink => 1] = 1/3
@@ -228,92 +227,144 @@ function ITensors.op(::OpName"U(t)", ::SiteType"SU(3)", s1::Index, s2::Index; t,
   return exp(-im * t * h)
 end
 
+# Update block using swap SVDs (seems to lead to large errors)
+# function updateblock(ψ, sites, i, Λs, W1, W2, cut, m)
+#   W1 = replaceinds(W1, [sites[1],sites[1]',sites[3],sites[3]'], [sites[i],sites[i]',sites[i+2],sites[i+2]'])
+#   W2 = replaceinds(W2, [sites[2],sites[2]',sites[4],sites[4]'], [sites[i+1],sites[i+1]',sites[i+3],sites[i+3]'])
+
+#   # Swap middle two sites
+#   Φ_bar = ψ[i+1] * ψ[i+2]
+#   Φ = noprime(Λs[i] * Φ_bar)
+#   # leftlink = dag(commonind(ψ[i], Φ))
+#   U,S,V = svd(Φ, (sites[i+2], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)", min_blockdim=1)
+#   B3 = V
+#   B2 = Φ_bar * dag(V)
+#   # leftind = commonind(U,S)
+#   # rightind = commonind(S,V)
+#   # replaceind!(S, leftind, rightind')
+#   Λs[i+1] = S
+
+#   if (i == 1)
+#     # Apply W1 to physical sites after swap
+#     Φ_bar = ψ[i] * B2
+#     Φ_bar = apply(W1, Φ_bar)
+#     Φ = Φ_bar
+
+#     U,S,V = svd(Φ, (sites[i]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)", min_blockdim=1)
+#     B2 = V
+#     ψ[i] = Φ_bar * dag(V)
+#     # leftind = commonind(U,S)
+#     # rightind = commonind(S,V)
+#     # replaceind!(S, leftind, rightind') # Priming the left side of Lambda, same index as right
+#     Λs[i] = S
+
+#     # Apply W2 to ancilla sites after swap
+#     Φ_bar = B3 * ψ[i+3]
+#     Φ_bar = apply(W2, Φ_bar)
+#     Φ = noprime(Λs[i+1] * Φ_bar)
+
+#     # leftlink = dag(commonind(B2, Φ))
+#     U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)", min_blockdim=1)
+#     ψ[i+3] = V
+#     B3 = Φ_bar * dag(V)
+#     # leftind = commonind(U,S)
+#     # rightind = commonind(S,V)
+#     # replaceind!(S, leftind, rightind')
+#     Λs[i+2] = S
+#   else
+#     # Apply W1 to physical sites after swap
+#     Φ_bar = ψ[i] * B2
+#     Φ_bar = apply(W1, Φ_bar)
+#     Φ = noprime(Λs[i-1] * Φ_bar) # Priming the left side of Lambda, same index as right
+
+#     # leftlink = dag(commonind(ψ[i-1], Φ))
+#     U,S,V = svd(Φ, (sites[i], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)", min_blockdim=1)
+#     B2 = V
+#     ψ[i] = Φ_bar * dag(V)
+#     # leftind = commonind(U,S)
+#     # rightind = commonind(S,V)
+#     # replaceind!(S, leftind, rightind') # Priming the left side of Lambda, same index as right
+#     Λs[i] = S
+
+#     # Apply W2 to ancilla sites after swap
+#     Φ_bar = B3 * ψ[i+3]
+#     Φ_bar = apply(W2, Φ_bar)
+#     Φ = noprime(Λs[i+1] * Φ_bar)
+
+#     # leftlink = dag(commonind(B2, Φ))
+#     U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)", min_blockdim=1)
+#     ψ[i+3] = V
+#     B3 = Φ_bar * dag(V)
+#     # leftind = commonind(U,S)
+#     # rightind = commonind(S,V)
+#     # replaceind!(S, leftind, rightind')
+#     Λs[i+2] = S
+#   end
+  
+#   # Swap middle two sites back
+#   Φ_bar = B2 * B3
+#   Φ = noprime(Λs[i] * Φ_bar)
+#   # leftlink = dag(commonind(ψ[i], Φ))
+#   U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)", min_blockdim=1)
+#   ψ[i+2] = V
+#   ψ[i+1] = Φ_bar * dag(V)
+#   # leftind = commonind(U,S)
+#   # rightind = commonind(S,V)
+#   # replaceind!(S, leftind, rightind')
+#   Λs[i+1] = S
+# end
+
+# Update block only contracting three-site blocks at a time
 function updateblock(ψ, sites, i, Λs, W1, W2, cut, m)
+  Φ_bar = ψ[i+1] * ψ[i+2] * ψ[i+3]
   W1 = replaceinds(W1, [sites[1],sites[1]',sites[3],sites[3]'], [sites[i],sites[i]',sites[i+2],sites[i+2]'])
   W2 = replaceinds(W2, [sites[2],sites[2]',sites[4],sites[4]'], [sites[i+1],sites[i+1]',sites[i+3],sites[i+3]'])
-
-  # Swap middle two sites
-  Φ_bar = ψ[i+1] * ψ[i+2]
+  Φ_bar = apply(W2, Φ_bar)
   Φ = noprime(Λs[i] * Φ_bar)
-  # leftlink = dag(commonind(ψ[i], Φ))
-  U,S,V = svd(Φ, (sites[i+2], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)", min_blockdim=1)
-  B3 = V
-  B2 = Φ_bar * dag(V)
-  # leftind = commonind(U,S)
-  # rightind = commonind(S,V)
-  # replaceind!(S, leftind, rightind')
-  Λs[i+1] = S
 
   if (i == 1)
-    # Apply W1 to physical sites after swap
-    Φ_bar = ψ[i] * B2
+    # leftlink = dag(commonind(ψ[i], Φ))
+    U,S,V = svd(Φ, (sites[i+1], sites[i+2], commonind(Φ, Λs[i])), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)")
+    ψ[i+3] = V
+    Λs[i+2] = S
+    Φ_bar = ψ[i] * Φ_bar * dag(V)
     Φ_bar = apply(W1, Φ_bar)
     Φ = Φ_bar
 
-    U,S,V = svd(Φ, (sites[i]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)", min_blockdim=1)
-    B2 = V
+    U,S,V = svd(Φ, (sites[i], sites[i+1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)")
+    ψ[i+2] = V
+    Λs[i+1] = S
+    Φ = U*S
+    Φ_bar = Φ_bar * dag(V)
+
+    U,S,V = svd(Φ, (sites[i]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)")
+    ψ[i+1] = V
     ψ[i] = Φ_bar * dag(V)
-    # leftind = commonind(U,S)
-    # rightind = commonind(S,V)
-    # replaceind!(S, leftind, rightind') # Priming the left side of Lambda, same index as right
     Λs[i] = S
-
-    # Apply W2 to ancilla sites after swap
-    Φ_bar = B3 * ψ[i+3]
-    Φ_bar = apply(W2, Φ_bar)
-    Φ = noprime(Λs[i+1] * Φ_bar)
-
-    # leftlink = dag(commonind(B2, Φ))
-    U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)", min_blockdim=1)
-    ψ[i+3] = V
-    B3 = Φ_bar * dag(V)
-    # leftind = commonind(U,S)
-    # rightind = commonind(S,V)
-    # replaceind!(S, leftind, rightind')
-    Λs[i+2] = S
   else
-    # Apply W1 to physical sites after swap
-    Φ_bar = ψ[i] * B2
+    # leftlink = dag(commonind(ψ[i], Φ))
+    U,S,V = svd(Φ, (sites[i+1], sites[i+2], commonind(Φ, Λs[i])), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)")
+    ψ[i+3] = V
+    Λs[i+2] = S
+    Φ_bar = ψ[i] * Φ_bar * dag(V)
     Φ_bar = apply(W1, Φ_bar)
-    Φ = noprime(Λs[i-1] * Φ_bar) # Priming the left side of Lambda, same index as right
+    Φ = noprime(Λs[i-1] * Φ_bar)
 
     # leftlink = dag(commonind(ψ[i-1], Φ))
-    U,S,V = svd(Φ, (sites[i], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i)", min_blockdim=1)
-    B2 = V
+    U,S,V = svd(Φ, (sites[i], sites[i+1], commonind(Φ, Λs[i-1])), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)")
+    ψ[i+2] = V
+    Λs[i+1] = S
+    Φ = U*S
+    Φ_bar = Φ_bar * dag(V)
+
+    U,S,V = svd(Φ, (sites[i], commonind(Φ, Λs[i-1])), cutoff=cut, maxdim=m, righttags="Link,l=$(i)")
+    ψ[i+1] = V
     ψ[i] = Φ_bar * dag(V)
-    # leftind = commonind(U,S)
-    # rightind = commonind(S,V)
-    # replaceind!(S, leftind, rightind') # Priming the left side of Lambda, same index as right
     Λs[i] = S
-
-    # Apply W2 to ancilla sites after swap
-    Φ_bar = B3 * ψ[i+3]
-    Φ_bar = apply(W2, Φ_bar)
-    Φ = noprime(Λs[i+1] * Φ_bar)
-
-    # leftlink = dag(commonind(B2, Φ))
-    U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+2)", min_blockdim=1)
-    ψ[i+3] = V
-    B3 = Φ_bar * dag(V)
-    # leftind = commonind(U,S)
-    # rightind = commonind(S,V)
-    # replaceind!(S, leftind, rightind')
-    Λs[i+2] = S
   end
-  
-  # Swap middle two sites back
-  Φ_bar = B2 * B3
-  Φ = noprime(Λs[i] * Φ_bar)
-  # leftlink = dag(commonind(ψ[i], Φ))
-  U,S,V = svd(Φ, (sites[i+1], inds(Φ)[1]), cutoff=cut, maxdim=m, righttags="Link,l=$(i+1)", min_blockdim=1)
-  ψ[i+2] = V
-  ψ[i+1] = Φ_bar * dag(V)
-  # leftind = commonind(U,S)
-  # rightind = commonind(S,V)
-  # replaceind!(S, leftind, rightind')
-  Λs[i+1] = S
 end
 
+# Update block by fully contracting four-site block and applying gates
 # function updateblock(ψ, sites, i, Λs, W1, W2, cut, m)
 #   Φ_bar = ψ[i] * ψ[i+1] * ψ[i+2] * ψ[i+3]
 #   W1 = replaceinds(W1, [sites[1],sites[1]',sites[3],sites[3]'], [sites[i],sites[i]',sites[i+2],sites[i+2]'])
@@ -435,6 +486,42 @@ function create_gate_list(sites, δt, U)
   return W1s, W2s
 end
 
+# Gates for naive apply
+function fourth_order_trotter_gates(L, sites, δt, U, real_evolution)
+  a1 = 0.095848502741203681182
+  a2 = -0.078111158921637922695
+  a3 = 0.5 - (a1 + a2)
+  b1 = 0.42652466131587616168
+  b2 = -0.12039526945509726545
+  b3 = 1 - 2 * (b1 + b2)
+
+  A1 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=a1*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+  B1 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=b1*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+  A2 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=a2*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+  B2 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=b2*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+  A3 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=a3*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+  B3 = ops([("U(t)", (2*n - 1, 2*n + 1), (t=b3*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+
+  if (real_evolution)
+    # Apply disentangler exp(iHt) on ancilla sites
+    aA1 = ops([("U(t)", (2*n, 2*n + 2), (t=-a1*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+    aB1 = ops([("U(t)", (2*n, 2*n + 2), (t=-b1*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+    aA2 = ops([("U(t)", (2*n, 2*n + 2), (t=-a2*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+    aB2 = ops([("U(t)", (2*n, 2*n + 2), (t=-b2*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+    aA3 = ops([("U(t)", (2*n, 2*n + 2), (t=-a3*δt, U=U,)) for n in 1:2:(L - 1)], sites)
+    aB3 = ops([("U(t)", (2*n, 2*n + 2), (t=-b3*δt, U=U,)) for n in 2:2:(L - 2)], sites)
+
+    A1 = vcat(A1,aA1)
+    B1 = vcat(B1,aB1)
+    A2 = vcat(A2,aA2)
+    B2 = vcat(B2,aB2)
+    A3 = vcat(A3,aA3)
+    B3 = vcat(B3,aB3)
+  end
+
+  return vcat(A1,B1,A2,B2,A3,B3,A3,B2,A2,B1,A1)
+end
+
 # Adding "Zeeman terms" to produce domain wall density matrix
 function H_dw(L)
   os = OpSum()
@@ -457,7 +544,7 @@ function main(params::SimulationParameters)
 
   c = div(params.L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_su(3)_dw_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_threaded$(params.num_threads).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_su(3)_dw_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_conserve.h5"
   # filename = "tebd_su(3)_dw_MPI_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
 
   if (isfile(filename))
@@ -472,11 +559,13 @@ function main(params::SimulationParameters)
 
     sites = siteinds(ψ)
     orthogonalize!(ψ, 1)
-    Λs = find_lambdas(ψ)
-    W1s, W2s = create_gate_list(sites, params.δt, params.U)
+    # Λs = find_lambdas(ψ)
+    # W1s, W2s = create_gate_list(sites, params.δt, params.U)
+    real_gates = fourth_order_trotter_gates(params.L, sites, params.δt, params.U, true)
   else
-    sites = siteinds("SU(3)", 2 * params.L; conserve_qns=false)
-    W1s, W2s = create_gate_list(sites, params.δt, params.U)
+    sites = siteinds("SU(3)", 2 * params.L; conserve_qns=true)
+    # W1s, W2s = create_gate_list(sites, params.δt, params.U)
+    real_gates = fourth_order_trotter_gates(params.L, sites, params.δt, params.U, true)
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
     ψ = inf_temp_mps(sites)
@@ -509,7 +598,8 @@ function main(params::SimulationParameters)
       break
     end
 
-    @time fourth_order_trotter_sweep(ψ, sites, Λs, W1s, W2s, params.cutoff, params.maxdim)
+    # @time fourth_order_trotter_sweep(ψ, sites, Λs, W1s, W2s, params.cutoff, params.maxdim)
+    @time ψ = apply(real_gates, ψ; params.cutoff, params.maxdim)
     GC.gc()
 
     Z1 = expect(ψ, "S1z"; sites=1:2:(2*params.L-1))
@@ -518,6 +608,7 @@ function main(params::SimulationParameters)
     # @time M_moment = moments(L, ψ, sites, cutoff, maxdim)
 
     println("Time = $t")
+    println("Max bond dimension = $(maxlinkdim(ψ))")
     flush(stdout)
     push!(times, t)
     t == params.δt ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
@@ -542,7 +633,7 @@ end
 
 ITensors.Strided.set_num_threads(1)
 BLAS.set_num_threads(1)
-# ITensors.enable_threaded_blocksparse(true)
+ITensors.enable_threaded_blocksparse(true)
 
 params = SimulationParameters(
     parse(Int64, ARGS[1]),    # L
@@ -553,8 +644,7 @@ params = SimulationParameters(
     100.0,                    # ttotal (or parse from ARGS if it's an input)
     0.05,                     # δτ (or parse from ARGS if it's an input)
     parse(Float64, ARGS[5]),  # U
-    parse(Float64, ARGS[6]),  # μ
-    parse(Int64, ARGS[7])     # num_threads
+    parse(Float64, ARGS[6])  # μ
 )
 
 # L = parse(Int64, ARGS[1])

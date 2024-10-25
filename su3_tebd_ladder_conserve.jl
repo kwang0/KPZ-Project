@@ -544,7 +544,7 @@ function main(params::SimulationParameters)
 
   c = div(params.L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_su(3)_dw_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_conserve.h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tebd_su(3)_dw_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ)_conserve_threesite.h5"
   # filename = "tebd_su(3)_dw_MPI_L$(params.L)_chi$(params.maxdim)_beta$(params.β_max)_dt$(params.δt)_U$(params.U)_mu$(params.μ).h5"
 
   if (isfile(filename))
@@ -559,13 +559,13 @@ function main(params::SimulationParameters)
 
     sites = siteinds(ψ)
     orthogonalize!(ψ, 1)
-    # Λs = find_lambdas(ψ)
-    # W1s, W2s = create_gate_list(sites, params.δt, params.U)
-    real_gates = fourth_order_trotter_gates(params.L, sites, params.δt, params.U, true)
+    Λs = find_lambdas(ψ)
+    W1s, W2s = create_gate_list(sites, params.δt, params.U)
+    # real_gates = fourth_order_trotter_gates(params.L, sites, params.δt, params.U, true)
   else
     sites = siteinds("SU(3)", 2 * params.L; conserve_qns=true)
-    # W1s, W2s = create_gate_list(sites, params.δt, params.U)
-    real_gates = fourth_order_trotter_gates(params.L, sites, params.δt, params.U, true)
+    W1s, W2s = create_gate_list(sites, params.δt, params.U)
+    # real_gates = fourth_order_trotter_gates(params.L, sites, params.δt, params.U, true)
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
     ψ = inf_temp_mps(sites)
@@ -598,8 +598,8 @@ function main(params::SimulationParameters)
       break
     end
 
-    # @time fourth_order_trotter_sweep(ψ, sites, Λs, W1s, W2s, params.cutoff, params.maxdim)
-    @time ψ = apply(real_gates, ψ; params.cutoff, params.maxdim)
+    @time fourth_order_trotter_sweep(ψ, sites, Λs, W1s, W2s, params.cutoff, params.maxdim)
+    # @time ψ = apply(real_gates, ψ; params.cutoff, params.maxdim)
     GC.gc()
 
     Z1 = expect(ψ, "S1z"; sites=1:2:(2*params.L-1))

@@ -15,7 +15,7 @@ plt.rc("axes", prop_cycle=plt.cycler(color=[colormap(k) for k in LinRange(interv
 fig,axs = plt.subplots(2,sharex=true)
 for J2 in perts
     file = "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime$(J2)_mu0.001.h5"
-    plot_hdf(axs, file, type="hdf", graph="both_transfer", label="J'=$(J2)",t_scale=J2^2)
+    plot_hdf(axs, file, type="hdf", graph="both_transfer", label="J'=$(J2)", t_scale=J2^2)
 end
 # axs[1].set_title("Magnetization transfer from initial domain wall (J' perturbations around U=0.0)")
 axs[1].set_xlabel(latexstring("t"))
@@ -30,7 +30,7 @@ plt.rc("axes", prop_cycle=plt.cycler(color=[colormap(k) for k in LinRange(interv
 fig,axs = plt.subplots(2,sharex=true)
 for U in perts
     file = "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime$(U)_mu0.001.h5"
-    plot_hdf(axs, file, type="hdf", graph="both_transfer", label="U'=$(U)",t_scale=U^2)
+    plot_hdf(axs, file, type="hdf", graph="both_transfer", label="U'=$(U)", t_scale=U^2)
 end
 # axs[1].set_title("Magnetization transfer from initial domain wall (U' perturbations around U=0.0)")
 axs[1].set_xlabel(latexstring("t"))
@@ -109,7 +109,7 @@ perts = [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.8,1.0,1.2,1.4,1.6]
 plt.rc("axes", prop_cycle=plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts))]))
 fig,axs = plt.subplots(2,sharex=true)
 for U in perts
-    file = "data_plots/tebd_su(3)_dw_L64_chi256_beta0.0_dt0.1_U$(U)_mu0.001_conserve_threesite_conj.h5"
+    file = "data_plots/tebd_su(3)_dw_L64_chi512_beta0.0_dt0.1_U$(U)_mu0.001_conserve_threesite_conj.h5"
     plot_hdf(axs, file, type="hdf", graph="both_transfer", label="U=$U", t_scale=U^6)
 end
 # axs[1].set_title("Magnetization transfer from initial domain wall (U perturbations)")

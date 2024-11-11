@@ -6,6 +6,7 @@
 #SBATCH -n 1
 #SBATCH -c 32
 #SBATCH --gpus-per-task=1
+#SBATCH -o ./logs_slurm/slurm-%j.out
 
 export SLURM_CPU_BIND="cores"
 export JULIA_CUDA_SOFT_MEMORY_LIMIT=50%

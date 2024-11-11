@@ -105,7 +105,7 @@ plt.savefig("plots/su4_U.$(format)", dpi=dpi)
 ############ SU(3) ladder ##############
 
 # Sym-preserving Biquad. perturbations
-perts = [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.8,1.0,1.2,1.4,1.6]
+perts = [0.1,0.2,0.3,0.4,0.5,0.6,0.8,1.0,1.2,1.4,1.6]
 plt.rc("axes", prop_cycle=plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts))]))
 fig,axs = plt.subplots(2,sharex=true)
 for U in perts

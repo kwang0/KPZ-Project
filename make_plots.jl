@@ -54,6 +54,7 @@ ax[2].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_lo
 for U in perts
     file = "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U$(U)_mu0.001.h5"
     λ = U/(1+U)
+    # plot_hdf(ax, file, type="hdf", graph="both_transfer", label="U=$(U/4)", t_scale=U^6)
     plot_hdf(ax, file, type="hdf", graph="both_transfer", label="U=$(U/4)", t_scale=λ^6/(1-λ))
 end
 # axs[1].set_title("Magnetization transfer from initial domain wall (U perturbations around U=0.0)")
@@ -126,7 +127,9 @@ plt.rc("figure", figsize=[7,7])
 fig,axs = plt.subplots(2, gridspec_kw=Dict("height_ratios" => [3, 2]))
 for U in perts
     file = "data_plots/tebd_su(3)_dw_L64_chi512_beta0.0_dt0.1_U$(U)_mu0.001_conserve_threesite_conj.h5"
+    λ = U/(1+U)
     plot_hdf(axs, file, type="hdf", graph="both_transfer", label="U=$U", t_scale=U^6)
+    # plot_hdf(axs, file, type="hdf", graph="both_transfer", label="U=$U", t_scale=λ^6/(1-λ))
 end
 # axs[1].set_title("Magnetization transfer from initial domain wall (U perturbations)")
 axs[1].set_xlabel(latexstring("t"))

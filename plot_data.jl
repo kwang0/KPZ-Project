@@ -16,7 +16,7 @@ using Glob
 # end
 
 # Plot my own data
-function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0, label="default", dw="Z")
+function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0, label="default", dw="Z", ncol=1)
     if label == "default"
         label = f
     end
@@ -25,8 +25,8 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         plot_hdf(ax[2], f, type=type, graph = "exponent", label = label)
         return
     elseif graph == "both_transfer"
-        plot_hdf(ax[1], f, type=type, graph = "transfer", t_scale=1.0, label = label, dw = dw)
-        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale, label = label, dw = dw)
+        plot_hdf(ax[1], f, type=type, graph = "transfer", t_scale=1.0, label = label, dw = dw, ncol=ncol)
+        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale, label = label, dw = dw, ncol=ncol)
         return
     end
 
@@ -151,7 +151,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         transfer .= transfer[1] .- transfer
         ax.loglog(times .* t_scale, transfer[:] .* (times .^ (-2/3)), label = label)
         # plt.plot(log.(times), diffusion, label=f)
-        ax.legend()
+        ax.legend(ncol=ncol)
     elseif graph == "exponent_transfer"
         if dw == "Z"
             F = h5open(f,"r")

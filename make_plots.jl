@@ -1,7 +1,8 @@
 include("plot_data.jl")
 
-plt.rc("figure", figsize=[12,4])
+plt.rc("figure", figsize=[12,5])
 plt.rc("legend", loc="lower right")
+plt.rc("font", size=12)
 colormap = plt.get_cmap("inferno")
 interval_low = 0.0
 interval_high = 0.9
@@ -124,11 +125,12 @@ plt.savefig("plots/su4.$(format)", dpi=dpi)
 perts = [0.1,0.2,0.3,0.4,0.5,0.6,0.8,1.0,1.2,1.4,1.6]
 plt.rc("axes", prop_cycle=plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts))]))
 plt.rc("figure", figsize=[7,7])
-fig,axs = plt.subplots(2, gridspec_kw=Dict("height_ratios" => [3, 2]))
+plt.rc("font", size=15)
+fig,axs = plt.subplots(2, gridspec_kw=Dict("height_ratios" => [3, 2]), layout="constrained")
 for U in perts
     file = "data_plots/tebd_su(3)_dw_L64_chi512_beta0.0_dt0.1_U$(U)_mu0.001_conserve_threesite_conj.h5"
     λ = U/(1+U)
-    plot_hdf(axs, file, type="hdf", graph="both_transfer", label="U=$U", t_scale=U^6)
+    plot_hdf(axs, file, type="hdf", graph="both_transfer", label="U=$U", t_scale=U^6, ncol=2)
     # plot_hdf(axs, file, type="hdf", graph="both_transfer", label="U=$U", t_scale=λ^6/(1-λ))
 end
 # axs[1].set_title("Magnetization transfer from initial domain wall (U perturbations)")

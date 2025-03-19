@@ -90,9 +90,9 @@ end
 
 function ITensors.op(::OpName"expiSS", ::SiteType"S=1/2", s1::Index, s2::Index; t, x, y, z)
   h =
-    x * op("X", s1) * op("X", s2) +
-    y * op("Y", s1) * op("Y", s2) +
-    z * op("Z", s1) * op("Z", s2)
+    0.25 * x * op("X", s1) * op("X", s2) +
+    0.25 * y * op("Y", s1) * op("Y", s2) +
+    0.25 * z * op("Z", s1) * op("Z", s2)
   
   return cu(exp(-im * t * h))
 end

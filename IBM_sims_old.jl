@@ -88,59 +88,61 @@ function inf_temp_mps(sites)
   end
 end
 
-function ITensors.op(::OpName"expiSS", ::SiteType"S=1/2", s1::Index, s2::Index; t, x, y, z)
-  h =
-    x * op("X", s1) * op("X", s2) +
-    y * op("Y", s1) * op("Y", s2) +
-    z * op("Z", s1) * op("Z", s2)
-  
-  return cu(exp(-im * t * h))
+function heisenberg(L, offset, rungX, rungY, rungZ)
+  os = OpSum()
+
+  # Adding J1 = 1 terms in ladder
+  for j in 1:2:(4*L - 3)
+    (j == (4*offset - 5)) && continue
+    (j == (4*offset - 3)) && continue
+    (j == (4*offset - 1)) && continue
+
+    os += "X", j, "X", j + 4
+    os += "Y", j, "Y", j + 4
+    os += "Z", j, "Z", j + 4
+
+    # Apply disentangler exp(iHt) on ancilla sites
+    os += -1, "X", j + 1, "X", j + 5
+    os += -1, "Y", j + 1, "Y", j + 5
+    os += -1, "Z", j + 1, "Z", j + 5
+  end
+
+  # Two Heisenberg terms are offset by 2 sites
+  j = 4 * offset - 3
+
+  os += "X", j - 2, "X", j + 4
+  os += "Y", j - 2, "Y", j + 4
+  os += "Z", j - 2, "Z", j + 4
+  os += -1, "X", j - 1, "X", j + 5
+  os += -1, "Y", j - 1, "Y", j + 5
+  os += -1, "Z", j - 1, "Z", j + 5
+
+  os += "X", j, "X", j + 6
+  os += "Y", j, "Y", j + 6
+  os += "Z", j, "Z", j + 6
+  os += -1, "X", j + 1, "X", j + 7
+  os += -1, "Y", j + 1, "Y", j + 7
+  os += -1, "Z", j + 1, "Z", j + 7
+
+  # Adding two extra rung interactions
+  os += rungX, "X", j, "X", j + 2
+  os += rungY, "Y", j, "Y", j + 2
+  os += rungZ, "Z", j, "Z", j + 2
+  os += -rungX, "X", j + 1, "X", j + 3
+  os += -rungY, "Y", j + 1, "Y", j + 3
+  os += -rungZ, "Z", j + 1, "Z", j + 3
+
+  os += rungX, "X", j + 2, "X", j + 4
+  os += rungY, "Y", j + 2, "Y", j + 4
+  os += rungZ, "Z", j + 2, "Z", j + 4
+  os += -rungX, "X", j + 3, "X", j + 5
+  os += -rungY, "Y", j + 3, "Y", j + 5
+  os += -rungZ, "Z", j + 3, "Z", j + 5
+
+  return os
 end
 
-function create_gates(sites, δt, L, offset, rungX, rungY, rungZ)
-  op_list = []
-
-  for j in 1:6:(4*L - 3)
-    # Only works for offset=5 right now
-    if (j == (4*offset - 1))
-      push!(op_list, ("expiSS", (j, j + 2), (t=δt, x=rungX, y=rungY, z=rungZ)))
-      push!(op_list, ("expiSS", (j + 1, j + 3), (t=-δt, x=rungX, y=rungY, z=rungZ)))
-      continue
-    end
-
-    push!(op_list, ("expiSS", (j, j + 4), (t=δt, x=1.0, y=1.0, z=1.0)))
-    push!(op_list, ("expiSS", (j + 1, j + 5), (t=-δt, x=1.0, y=1.0, z=1.0)))
-  end
-
-  for j in 3:6:(4*L - 3)
-    if (j == (4*offset - 5))
-      push!(op_list, ("expiSS", (j, j + 6), (t=δt, x=1.0, y=1.0, z=1.0)))
-      push!(op_list, ("expiSS", (j + 1, j + 7), (t=-δt, x=1.0, y=1.0, z=1.0)))
-
-      push!(op_list, ("expiSS", (j + 2, j + 8), (t=δt, x=1.0, y=1.0, z=1.0)))
-      push!(op_list, ("expiSS", (j + 3, j + 9), (t=-δt, x=1.0, y=1.0, z=1.0)))
-      continue
-    end
-
-    push!(op_list, ("expiSS", (j, j + 4), (t=δt, x=1.0, y=1.0, z=1.0)))
-    push!(op_list, ("expiSS", (j + 1, j + 5), (t=-δt, x=1.0, y=1.0, z=1.0)))
-  end
-
-  for j in 5:6:(4*L - 3)
-    if (j == (4*offset - 3))
-      push!(op_list, ("expiSS", (j, j + 2), (t=δt, x=rungX, y=rungY, z=rungZ)))
-      push!(op_list, ("expiSS", (j + 1, j + 3), (t=-δt, x=rungX, y=rungY, z=rungZ)))
-      continue
-    end
-
-    push!(op_list, ("expiSS", (j, j + 4), (t=δt, x=1.0, y=1.0, z=1.0)))
-    push!(op_list, ("expiSS", (j + 1, j + 5), (t=-δt, x=1.0, y=1.0, z=1.0)))
-  end
-
-  return ops(op_list, sites)
-end
-
-function main(; L=128, cutoff=1f-6, δt=0.1, ttotal=20, maxdim=32, offset=5, rungX=0.0, rungY=0.0, rungZ=0.0)
+function main(; L=128, cutoff=1e-10, δt=0.1, ttotal=100, maxdim=32, offset=5, rungX=0.0, rungY=0.0, rungZ=0.0)
   tick()
 
   filename = "/pscratch/sd/k/kwang98/KPZ/IBM_sims_L$(L)_chi$(maxdim)_dt$(δt)_offset$(offset)_rungX$(rungX)_rungY$(rungY)_rungZ$(rungZ).h5"
@@ -157,11 +159,12 @@ function main(; L=128, cutoff=1f-6, δt=0.1, ttotal=20, maxdim=32, offset=5, run
     close(F)
 
     sites = siteinds(ψ)
-    gates = create_gates(sites, δt, L, offset, rungX, rungY, rungZ)
+    H_real = cu(MPO(heisenberg(L, offset, rungX, rungY, rungZ), sites))
   else
     sites = siteinds("S=1/2", 4 * L + 2; conserve_qns=false)
-    gates = create_gates(sites, δt, L, offset, rungX, rungY, rungZ)
-
+    H_real_cpu = MPO(heisenberg(L, offset, rungX, rungY, rungZ), sites)
+    H_real = cu(H_real_cpu)
+  
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
     ψ = cu(inf_temp_mps(sites))
 
@@ -180,11 +183,22 @@ function main(; L=128, cutoff=1f-6, δt=0.1, ttotal=20, maxdim=32, offset=5, run
       break
     end
 
-    # if (maxlinkdim(ψ2) < maxdim)
-    #   ψ2 = expand(ψ2, H_real; alg="global_krylov", cutoff)
-    # end
+    if (maxlinkdim(ψ2) < maxdim)
+      # ψ2_cpu = ITensors.cpu(ψ2)
+      # ψ2_cpu = basis_extend(ψ2_cpu, H_real_cpu; cutoff, extension_krylovdim=2)
+      ψ2 = expand(ψ2, H_real; alg="global_krylov", cutoff)
+      # ψ2 = cu(ψ2_cpu)
+    end
 
-    ψ2 = apply(gates, ψ2; cutoff, maxdim)
+    ψ2 = tdvp(H_real, -im * δt, ψ2;
+      nsweeps=1,
+      reverse_step=true,
+      normalize=true,
+      maxdim=maxdim,
+      cutoff=cutoff,
+      outputlevel=1,
+      nsite=2
+    )
     GC.gc()
 
     corr = ComplexF64[]
@@ -198,7 +212,6 @@ function main(; L=128, cutoff=1f-6, δt=0.1, ttotal=20, maxdim=32, offset=5, run
     S = entropy_von_neumann(ITensors.cpu(ψ), 2*L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
 
     println("Time = $t")
-    println("Max link dim = $(maxlinkdim(ψ2))")
     flush(stdout)
     push!(times, t)
     t == δt ? corrs = corr : corrs = hcat(corrs, corr)

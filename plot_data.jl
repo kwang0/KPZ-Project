@@ -151,7 +151,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         transfer .= transfer[1] .- transfer
         ax.loglog(times .* t_scale, transfer[:] .* (times .^ (-2/3)), label = label)
         # plt.plot(log.(times), diffusion, label=f)
-        ax.legend(ncol=ncol)
+        # ax.legend(ncol=ncol)
     elseif graph == "exponent_transfer"
         if dw == "Z"
             F = h5open(f,"r")
@@ -181,7 +181,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         while (t < times[end] && size(times[times .> t],1) > 100)
             push!(ts, t)
             window_min = t
-            window_max = t + 20
+            window_max = t + 30
 
             window_transfer = transfer[(times .> window_min) .& (times .< window_max)]
             window_times = times[(times .> window_min) .& (times .< window_max)] .* t_scale

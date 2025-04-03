@@ -1,29 +1,29 @@
 using MKL
 using ITensors
-using ITensorTDVP
+using ITensorMPS
 using CUDA
 using Printf
 using PyPlot
 using HDF5
 using LinearAlgebra
 using TickTock
-include("basis_extend.jl")
-include("applyexp.jl")
+# include("basis_extend.jl")
+# include("applyexp.jl")
 
-function solver(H, t, psi0; kwargs...)
-    tol_per_unit_time = get(kwargs, :solver_tol, 1E-8)
-    solver_kwargs = (;
-        maxiter=get(kwargs, :solver_krylovdim, 30),
-        outputlevel=get(kwargs, :solver_outputlevel, 0),
-    )
-    #applyexp tol is absolute, compute from tol_per_unit_time:
-    tol = abs(t) * tol_per_unit_time
-    psi, info = applyexp(H, t, psi0; tol, solver_kwargs..., kwargs...)
-    return psi, info
-end
+# function solver(H, t, psi0; kwargs...)
+#     tol_per_unit_time = get(kwargs, :solver_tol, 1E-8)
+#     solver_kwargs = (;
+#         maxiter=get(kwargs, :solver_krylovdim, 30),
+#         outputlevel=get(kwargs, :solver_outputlevel, 0),
+#     )
+#     #applyexp tol is absolute, compute from tol_per_unit_time:
+#     tol = abs(t) * tol_per_unit_time
+#     psi, info = applyexp(H, t, psi0; tol, solver_kwargs..., kwargs...)
+#     return psi, info
+# end
 
-mutable struct SizeObserver <: AbstractObserver
-end
+# mutable struct SizeObserver <: AbstractObserver
+# end
 
 function entropy_von_neumann(ψ, b)
   ψ = orthogonalize(ψ, b)
@@ -36,13 +36,13 @@ function entropy_von_neumann(ψ, b)
   return SvN
 end
 
-function ITensors.measure!(o::SizeObserver; bond, sweep, half_sweep, psi, kwargs...)
-  if bond==1 && half_sweep==2
-    # psi_size =  Base.format_bytes(Base.summarysize(psi))
-    # println("After sweep $sweep, |psi| = $psi_size")
-    GC.gc()
-  end
-end
+# function ITensors.measure!(o::SizeObserver; bond, sweep, half_sweep, psi, kwargs...)
+#   if bond==1 && half_sweep==2
+#     # psi_size =  Base.format_bytes(Base.summarysize(psi))
+#     # println("After sweep $sweep, |psi| = $psi_size")
+#     GC.gc()
+#   end
+# end
 
 function inf_temp_mps(sites)
   num_sites = length(sites)
@@ -389,7 +389,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
 
   c = div(L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_Pnnn$(P)_mu$(μ)_h$(h).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_Pnnn$(P)_mu$(μ)_h$(h).h5"
   # filename = "tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_Pnnn$(P)_mu$(μ)_h$(h).h5"
 
@@ -398,7 +398,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     times = read(F, "times")
     Z1s = read(F, "Z1s")
     Z2s = read(F, "Z2s")
-    Ss = read(F, "Ss")
+    # Ss = read(F, "Ss")
     # M_moments = read(F, "M_moments")
     ψ = cu(read(F, "psi", MPS))
     start_time = last(times) + δt
@@ -455,7 +455,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     times = Float64[]
     Z1s = []
     Z2s = []
-    Ss = []
+    # Ss = []
     # M_moments = []
     start_time = δt
   end
@@ -471,7 +471,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     # @time ψ = basis_extend(ψ, H_real; cutoff, extension_krylovdim=2)
     # end
 
-    ψ = tdvp(solver, H_real, -im * δt, ψ;
+    ψ = tdvp(H_real, -im * δt, ψ;
       nsweeps=1,
       reverse_step=true,
       normalize=false,
@@ -484,7 +484,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
 
     Z1 = expect(ψ, "S1z"; sites=1:2:(2*L-1))
     Z2 = expect(ψ, "S2z"; sites=1:2:(2*L-1))
-    S = entropy_von_neumann(ITensors.cpu(ψ), L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
+    # S = entropy_von_neumann(ITensors.cpu(ψ), L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
     # @time M_moment = moments(L, ψ, sites, cutoff, maxdim)
 
     println("Time = $t")
@@ -492,7 +492,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     push!(times, t)
     t == δt ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
     t == δt ? Z2s = Z2 : Z2s = hcat(Z2s, Z2)
-    t == δt ? Ss = S : Ss = hcat(Ss, S)
+    # t == δt ? Ss = S : Ss = hcat(Ss, S)
     # t == δt ? M_moments = M_moment : M_moments = hcat(M_moments, M_moment)
 
     # Writing to data file
@@ -500,7 +500,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     F["times"] = times
     F["Z1s"] = Z1s
     F["Z2s"] = Z2s
-    F["Ss"] = Ss
+    # F["Ss"] = Ss
     # F["M_moments"] = M_moments
     F["corrs"] = (Z1s[c-1,:] .- Z1s[c,:]) ./ (2 * μ)
     F["psi"] = ITensors.cpu(ψ)
@@ -519,11 +519,11 @@ maxdim = parse(Int64, ARGS[2])
 β_max = parse(Float64, ARGS[3])
 δt = parse(Float64, ARGS[4])
 J2 = parse(Float64, ARGS[5])
-J3 = parse(Float64, ARGS[6])
-U1 = parse(Float64, ARGS[7])
-U2 = parse(Float64, ARGS[8])
-P = parse(Float64, ARGS[9])
-μ = parse(Float64, ARGS[10])
-h = parse(Float64, ARGS[11])
+# J3 = parse(Float64, ARGS[6])
+U1 = parse(Float64, ARGS[6])
+U2 = parse(Float64, ARGS[7])
+# P = parse(Float64, ARGS[9])
+μ = parse(Float64, ARGS[8])
+# h = parse(Float64, ARGS[11])
 
-main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, J3=J3, U1=U1, U2=U2, P=P, μ=μ, h=h)
+main(L=L, maxdim=maxdim, β_max=β_max, δt=δt, J2=J2, U1=U1, U2=U2, μ=μ)

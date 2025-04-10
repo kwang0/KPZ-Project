@@ -389,7 +389,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
 
   c = div(L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/production/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_Pnnn$(P)_mu$(μ)_h$(h).h5"
   # filename = "tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_Pnnn$(P)_mu$(μ)_h$(h).h5"
 
@@ -398,7 +398,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     times = read(F, "times")
     Z1s = read(F, "Z1s")
     Z2s = read(F, "Z2s")
-    # Ss = read(F, "Ss")
+    Ss = read(F, "Ss")
     # M_moments = read(F, "M_moments")
     ψ = cu(read(F, "psi", MPS))
     start_time = last(times) + δt
@@ -455,7 +455,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     times = Float64[]
     Z1s = []
     Z2s = []
-    # Ss = []
+    Ss = []
     # M_moments = []
     start_time = δt
   end
@@ -472,6 +472,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     # end
 
     ψ = tdvp(H_real, -im * δt, ψ;
+      updater_backend="applyexp",
       nsweeps=1,
       reverse_step=true,
       normalize=false,
@@ -484,7 +485,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
 
     Z1 = expect(ψ, "S1z"; sites=1:2:(2*L-1))
     Z2 = expect(ψ, "S2z"; sites=1:2:(2*L-1))
-    # S = entropy_von_neumann(ITensors.cpu(ψ), L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
+    S = entropy_von_neumann(ITensors.cpu(ψ), L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
     # @time M_moment = moments(L, ψ, sites, cutoff, maxdim)
 
     println("Time = $t")
@@ -492,7 +493,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     push!(times, t)
     t == δt ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
     t == δt ? Z2s = Z2 : Z2s = hcat(Z2s, Z2)
-    # t == δt ? Ss = S : Ss = hcat(Ss, S)
+    t == δt ? Ss = S : Ss = hcat(Ss, S)
     # t == δt ? M_moments = M_moment : M_moments = hcat(M_moments, M_moment)
 
     # Writing to data file
@@ -500,7 +501,7 @@ function main(; L=128, cutoff=1e-16, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100,
     F["times"] = times
     F["Z1s"] = Z1s
     F["Z2s"] = Z2s
-    # F["Ss"] = Ss
+    F["Ss"] = Ss
     # F["M_moments"] = M_moments
     F["corrs"] = (Z1s[c-1,:] .- Z1s[c,:]) ./ (2 * μ)
     F["psi"] = ITensors.cpu(ψ)

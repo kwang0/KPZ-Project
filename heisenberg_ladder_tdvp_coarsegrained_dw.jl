@@ -370,7 +370,7 @@ function main(; L=128, cutoff=1e-12, δτ=0.05, β_max=0.0, ttotal=100, maxdim=3
   c = div(L,2) + 1 # center site
   δt = 0.1
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/production/tdvp_coarsegrained_dw_L$(L)_chi$(maxdim)_beta$(β_max)_dt_ramped0.1_20.0_0.5_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ)_1e12cutoff_exponentiate.h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/production/tdvp_coarsegrained_dw_L$(L)_chi$(maxdim)_beta$(β_max)_dt_ramped0.1_20.0_0.5_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ)_1e12cutoff.h5"
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_Pnnn$(P)_mu$(μ)_h$(h).h5"
   # filename = "tdvp_coarsegrained_dw_L$(L)_chi$(maxdim)_beta$(β_max)_dt_ramped_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
 
@@ -457,10 +457,10 @@ function main(; L=128, cutoff=1e-12, δτ=0.05, β_max=0.0, ttotal=100, maxdim=3
     # end
 
     ψ = tdvp(H_real, -im * δt, ψ;
-      # updater_backend="applyexp",
+      updater_backend="applyexp",
       nsweeps=1,
       reverse_step=true,
-      normalize=true,
+      normalize=false,
       maxdim=maxdim,
       cutoff=cutoff,
       outputlevel=1,

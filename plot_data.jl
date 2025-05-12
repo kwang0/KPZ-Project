@@ -96,7 +96,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         # fig, ax = plt.subplots(1)
         L = size(corrs,1)
         img = matplotlib[:image][:NonUniformImage](ax, interpolation="nearest", cmap="hot", extent=(1,L,0,times[end]))
-        img.set_data(times.^(2/3), LinRange(1,L,L), log.(corrs))
+        img.set_data(times, LinRange(1,L,L), abs.(corrs))
         ax.add_image(img)
         ax.set_xlim(0,times[end])
         ax.set_ylim(1,L)
@@ -180,12 +180,12 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         ts = []
         t = 2.5
         scale = 1.25
-        while (t < times[end])
+        while (t + window_size < times[end])
             window_min = t
             window_max = t + window_size
-            if size((times[(times .> window_min) .& (times .< window_max)]),1) < 10 * window_size - 1
-                break
-            end
+            # if size((times[(times .> window_min) .& (times .< window_max)]),1) < 10 * window_size - 1
+            #     break
+            # end
             push!(ts, t)
 
             window_transfer = transfer[(times .> window_min) .& (times .< window_max)]

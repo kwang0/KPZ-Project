@@ -214,6 +214,19 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         close(F)
         
         ax.plot(times, Ss[:], label=f)
+    elseif graph == "IBM"
+        F = h5open(f,"r")
+        times = read(F, "times")
+        corrs = read(F, "corrs")
+        close(F)
+
+        reflection = sum(corrs[1:2:9,:], dims=1)[:]
+        transmission1 = sum(corrs[12:2:end,:], dims=1)[:]
+        transmission2 = sum(corrs[2:2:10,:], dims=1)[:] + sum(corrs[11:2:end,:], dims=1)[:]
+        ax.plot(times, real.(reflection))
+        ax.plot(times, real.(transmission1))
+        ax.plot(times, real.(transmission2))
+        ax.plot(times, real.(reflection .+ transmission1 .+ transmission2))
     end
     # end
     

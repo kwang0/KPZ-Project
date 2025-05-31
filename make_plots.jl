@@ -7,7 +7,7 @@ colormap = plt.get_cmap("inferno")
 interval_low = 0.0
 interval_high = 0.9
 dpi = 1200
-format = "pdf"
+format = "png"
 
 ############# SU(2) point #############
 

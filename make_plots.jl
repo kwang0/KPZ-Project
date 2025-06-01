@@ -48,7 +48,7 @@ for U in perts
     # file = "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime$(U)_mu0.001.h5"
     file = "data_plots/production/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime$(U)_mu0.001.h5"
     λ = U/(1+U)
-    plot_hdf(ax, file, type="hdf", graph="both_transfer", label="U'=$(U/4)", t_scale=λ^2(1-λ))
+    plot_hdf(ax, file, type="hdf", graph="both_transfer", label="U'=$(U/4)", t_scale=λ^2)
 end
 # axs[1].set_title("Magnetization transfer from initial domain wall (U' perturbations around U=0.0)")
 ax[1].set_xlabel(latexstring("t"))
@@ -76,7 +76,8 @@ end
 # axs[1].set_title("Magnetization transfer from initial domain wall (U perturbations around U=0.0)")
 ax[1].set_xlabel(latexstring("t"))
 # axs[1].set_ylabel(latexstring("\\Delta s \\cdot t^{-2/3}"))
-ax[2].set_xlabel(latexstring("\\frac{t \\cdot λ^6}{1-λ}"))
+ax[2].set_xlabel(latexstring("t \\cdot U^2"))
+# ax[2].set_xlabel(latexstring("\\frac{t \\cdot λ^6}{1-λ}"))
 # axs[2].set_ylabel(latexstring("z"))
 
 norm = plt.Normalize(vmin=0.0, vmax=0.5)

@@ -223,10 +223,12 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         reflection = sum(corrs[1:2:9,:], dims=1)[:]
         transmission1 = sum(corrs[12:2:end,:], dims=1)[:]
         transmission2 = sum(corrs[2:2:10,:], dims=1)[:] + sum(corrs[11:2:end,:], dims=1)[:]
-        ax.plot(times, real.(reflection))
-        ax.plot(times, real.(transmission1))
-        ax.plot(times, real.(transmission2))
-        ax.plot(times, real.(reflection .+ transmission1 .+ transmission2))
+        ax.plot(times, abs.(reflection), label="R")
+        ax.plot(times, abs.(transmission1), label="T1")
+        ax.plot(times, abs.(transmission2), label="T2")
+        # ax.plot(times, real.(reflection .+ transmission1 .+ transmission2))]
+        ax.set_xlabel("t")
+        ax.legend()
     end
     # end
     

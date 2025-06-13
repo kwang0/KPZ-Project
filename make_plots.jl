@@ -76,8 +76,8 @@ end
 # axs[1].set_title("Magnetization transfer from initial domain wall (U perturbations around U=0.0)")
 ax[1].set_xlabel(latexstring("t"))
 # axs[1].set_ylabel(latexstring("\\Delta s \\cdot t^{-2/3}"))
-ax[2].set_xlabel(latexstring("t \\cdot U^6"))
-# ax[2].set_xlabel(latexstring("\\frac{t \\cdot λ^6}{1-λ}"))
+# ax[2].set_xlabel(latexstring("t \\cdot U^6"))
+ax[2].set_xlabel(latexstring("\\frac{t \\cdot λ^6}{1-λ}"))
 # axs[2].set_ylabel(latexstring("z"))
 
 norm = plt.Normalize(vmin=0.0, vmax=0.5)

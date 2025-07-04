@@ -102,17 +102,26 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         ax.set_ylim(1,L)
         plt.title(f)
     elseif graph == "fulldw"
-        F = h5open(f,"r")
-        Z1s = real(read(F, "Z1s"))
-        Z2s = real(read(F, "Z2s"))
-        close(F)
-
-        Zs = (Z1s .+ Z2s)
+        if dw == "Z"
+            F = h5open(f,"r")
+            Z1s = real(read(F, "Z1s"))
+            Z2s = real(read(F, "Z2s"))
+            close(F)
+            Qs = (Z1s .+ Z2s)
+        elseif dw == "rung"
+            F = h5open(f,"r")
+            Qs = real(read(F, "Qs"))
+            close(F)
+        elseif dw == "su(3)"
+            F = h5open(f,"r")
+            Qs = real(read(F, "Zs"))
+            close(F)
+        end
 
         # times .= times.^(2/3)
-        L = size(Zs,1)
+        L = size(Qs,1)
         img = matplotlib[:image][:NonUniformImage](ax, interpolation="nearest", cmap="hot", extent=(1,L,0,times[end]))
-        img.set_data(times, LinRange(1,L,L), Zs)
+        img.set_data(times, LinRange(1,L,L), Qs)
         ax.add_image(img)
         ax.set_xlim(0,times[end])
         ax.set_ylim(1,L)
@@ -194,7 +203,10 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
             y = log.(window_transfer)
 
             b, m = linear_fit(x, y)
-            m_err = sqrt(sum((m .* x .+ b .- y).^2) / (sum((x .- (sum(x) / size(x,1))).^2) * (size(x,1)-2)))
+            n = size(x,1)
+            y_pred = (m .* x) .+ b
+            m_err = sqrt(sum((y_pred .- y).^2) / (sum((x .- (sum(x)/n)).^2) * (n-2)))
+
             alpha = 1.0/m
             alpha_err = m_err/m^2
 
@@ -204,9 +216,8 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         end
         ax.set_xscale("log")
         ax.set_yticks([1,1.5,2],["1","1.5","2"])
-        ax.plot(ts .* t_scale, alphas, label=f, marker=".", linestyle="--")
         ax.set_ylim(1,2)
-        # ax.errorbar(ts .* t_scale, alphas, yerr=errors, label=f, marker=".", linestyle="--")
+        ax.plot(ts .* t_scale, alphas, label=f, marker=".", linestyle="--")
         # ax.legend()
     elseif graph == "entropy"
         F = h5open(f,"r")

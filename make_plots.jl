@@ -16,15 +16,19 @@ perts = 0.1:0.1:0.5
 fig,axs = plt.subplots(2,3, sharey="row", gridspec_kw=Dict("height_ratios" => [3,2], "width_ratios" => [1, 1, 1]), layout="constrained")
 # plt.tight_layout()
 ax = axs[:,1]
-ax[1].set_xlim(8e-1, 110)
+ax[1].set_xlim(8e-1, 200)
 ax[1].set_ylim(5e-4, 1e-3)
 ax[1].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts)+1)]))
 ax[2].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts)+1)]))
 
-plot_hdf(ax, "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0)
+# plot_hdf(ax, "data_plots/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0)
+plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0)
+# plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_L64_chi1024_beta0.0_dt_ramped0.1_20.0_0.5_Jprime0.0_U0.0_Uprime0.0_mu0.001_1e12cutoff.h5", type="hdf", graph="both_transfer", t_scale=1.0)
+# plot_hdf(ax, "data_plots/production/chain_L128_chi512.h5", type="hdf", graph="both_transfer", t_scale=1.0, dw="su(3)")
 for J2 in perts
     # file = "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime$(J2)_mu0.001.h5"
-    file = "data_plots/production/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime$(J2)_U0.0_Uprime0.0_mu0.001.h5"
+    # file = "data_plots/production/tdvp_coarsegrained_dw_gpu_L64_chi600_beta0.0_dt0.1_Jprime$(J2)_U0.0_Uprime0.0_mu0.001.h5"
+    file = "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime$(J2)_U0.0_Uprime0.0_mu0.001.h5"
     # file = "data_plots/production/tdvp_coarsegrained_dw_L64_chi1024_beta0.0_dt_ramped0.1_20.0_0.5_Jprime$(J2)_U0.0_Uprime0.0_mu0.001_1e12cutoff.h5"
     plot_hdf(ax, file, type="hdf", graph="both_transfer", label="J'=$(J2)", t_scale=J2^2, window_size=30)
 end

@@ -384,12 +384,12 @@ function H_h(L)
   return os
 end
 
-function main(; L=128, cutoff=1f-10, δτ=0.05, β_max=0.0, δt=0.1, ttotal=100, maxdim=32, J2=0.0, J3=0.0, Delta=1.0, U1=0.0, U2=0.0, P=0.0, μ=0.001, h=0.0)
+function main(; L=128, cutoff=1e-12, δτ=0.05, β_max=0.0, δt=0.1, ttotal=200, maxdim=32, J2=0.0, J3=0.0, Delta=1.0, U1=0.0, U2=0.0, P=0.0, μ=0.001, h=0.0)
   tick()
 
   c = div(L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/production/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/production/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ)_1e12cutoff.h5"
   # filename = "/global/scratch/users/kwang98/KPZ/tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_Jnnn$(J3)_U$(U1)_Uprime$(U2)_Pnnn$(P)_mu$(μ)_h$(h).h5"
   # filename = "tdvp_coarsegrained_dw_gpu_L$(L)_chi$(maxdim)_beta$(β_max)_dt$(δt)_Jprime$(J2)_U$(U1)_Uprime$(U2)_mu$(μ).h5"
 

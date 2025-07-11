@@ -16,7 +16,7 @@ using Glob
 # end
 
 # Plot my own data
-function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0, label="default", dw="Z", ncol=1, window_size = 20)
+function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0, label="default", dw="Z", ncol=1, window_size = 20, T_cutoff=Inf64, normalize=false)
     if label == "default"
         label = f
     end
@@ -25,8 +25,8 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         plot_hdf(ax[2], f, type=type, graph = "exponent", label = label)
         return
     elseif graph == "both_transfer"
-        plot_hdf(ax[1], f, type=type, graph = "transfer", t_scale=1.0, label = label, dw = dw, ncol=ncol, window_size=window_size)
-        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale, label = label, dw = dw, ncol=ncol, window_size=window_size)
+        plot_hdf(ax[1], f, type=type, graph = "transfer", t_scale=1.0, label = label, dw = dw, ncol=ncol, window_size=window_size, T_cutoff=T_cutoff, normalize=normalize)
+        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale, label = label, dw = dw, ncol=ncol, window_size=window_size, T_cutoff=T_cutoff, normalize=normalize)
         return
     end
 
@@ -154,6 +154,8 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
             Qs = real(read(F, "Zs"))
             close(F)
         end
+        Qs = Qs[:, times .< T_cutoff]
+        times = times[times .< T_cutoff]
 
         c = size(Qs,1)÷2
         transfer = sum(Qs[1:c,:],dims=1)
@@ -177,6 +179,14 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
             Qs = real(read(F, "Zs"))
             close(F)
         end
+        if normalize
+            F = h5open(f,"r")
+            psi_norms = read(F, "psi_norms")
+            close(F)
+            Qs ./= transpose(psi_norms.^2)
+        end
+        Qs = Qs[:, times .< T_cutoff]
+        times = times[times .< T_cutoff]
 
         c = size(Qs,1)÷2
         transfer = sum(Qs[1:c,:],dims=1)
@@ -187,7 +197,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         alphas = []
         errors = []
         ts = []
-        t = 2.5
+        t = 1.0
         scale = 1.25
         while (t + window_size < times[end])
             window_min = t
@@ -218,7 +228,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         ax.set_yticks([1,1.5,2],["1","1.5","2"])
         ax.set_ylim(1,2)
         ax.plot(ts .* t_scale, alphas, label=f, marker=".", linestyle="--")
-        # ax.legend()
+        ax.legend()
     elseif graph == "entropy"
         F = h5open(f,"r")
         Ss = real(read(F, "Ss"))

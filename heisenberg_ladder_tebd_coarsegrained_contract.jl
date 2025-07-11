@@ -15,6 +15,7 @@ struct SimulationParameters
   cutoff::Float64
   δt::Float64
   ttotal::Float64
+  J2::Float64
   μ::Float64
 end
 
@@ -74,7 +75,7 @@ function inf_temp_mps(sites)
   if (num_sites % 2 != 0)
     throw(DomainError(num_sites,"Expects even number of sites for ancilla-physical singlets."))
   else
-    state = [isodd(n) ? "Up" : "Dn" for n=1:num_sites]
+    state = ["UpDn" for n=1:num_sites]
     ψ = MPS(sites, state)
     for j = 1:2:num_sites-1
       s1 = sites[j]
@@ -84,8 +85,10 @@ function inf_temp_mps(sites)
         rightlink = commonind(ψ[j+1],ψ[j+2])
         A = ITensor(ComplexF64, s1, s2, rightlink)
 
-        A[s1=>1, s2=>2, rightlink => 1] = 1/2
-        A[s1=>2, s2=>1, rightlink => 1] = -1/2
+        A[s1=>1, s2=>4, rightlink => 1] = 1/2
+        A[s1=>4, s2=>1, rightlink => 1] = 1/2
+        A[s1=>2, s2=>3, rightlink => 1] = 1/2
+        A[s1=>3, s2=>2, rightlink => 1] = 1/2
 
         U,S,V = svd(A, (s1), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -95,8 +98,10 @@ function inf_temp_mps(sites)
         leftlink = dag(commonind(ψ[j-1], ψ[j]))
         A = ITensor(ComplexF64, s1, s2, leftlink)
 
-        A[s1=>1, s2=>2, leftlink => 1] = 1/2
-        A[s1=>2, s2=>1, leftlink => 1] = -1/2
+        A[s1=>1, s2=>4, leftlink => 1] = 1/2
+        A[s1=>4, s2=>1, leftlink => 1] = 1/2
+        A[s1=>2, s2=>3, leftlink => 1] = 1/2
+        A[s1=>3, s2=>2, leftlink => 1] = 1/2
 
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -108,8 +113,10 @@ function inf_temp_mps(sites)
     
         A = ITensor(ComplexF64, s1, s2, rightlink, leftlink)
 
-        A[s1=>1, s2=>2, rightlink=>1, leftlink => 1] = 1/2
-        A[s1=>2, s2=>1, rightlink=>1, leftlink => 1] = -1/2
+        A[s1=>1, s2=>4, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>4, s2=>1, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>2, s2=>3, rightlink=>1, leftlink => 1] = 1/2
+        A[s1=>3, s2=>2, rightlink=>1, leftlink => 1] = 1/2
 
         U,S,V = svd(A, (s1, leftlink), cutoff=1e-16, lefttags="Link,l=$(j)")
         ψ[j] = U
@@ -121,14 +128,79 @@ function inf_temp_mps(sites)
   end
 end
 
-function ITensors.op(::OpName"U(t)", ::SiteType"S=1/2", s1::Index, s2::Index; t)
-  h = ITensor()
+# Representation of two spin-1/2's coarse-grained onto one spin-3/2 Hilbert space
+# Convention is (|up,up>, |up,down>, |down,up>, |down,down>)
+function ITensors.space(::SiteType"S=3/2";
+  conserve_qns=false)
+  if conserve_qns
+    return [QN("Sz",1)=>1,QN("Sz",0)=>2,QN("Sz",-1)=>1]
+  end
+  return 4
+end
 
-  h = op("Sz", s1) * op("Sz", s2) +
-  0.5 * op("S+", s1) * op("S-", s2) +
-  0.5 * op("S-", s1) * op("S+", s2)
+ITensors.state(::StateName"UpUp", ::SiteType"S=3/2") = [1.0, 0, 0, 0]
+ITensors.state(::StateName"UpDn", ::SiteType"S=3/2") = [0, 1.0, 0, 0]
+ITensors.state(::StateName"DnUp", ::SiteType"S=3/2") = [0, 0, 1.0, 0]
+ITensors.state(::StateName"DnDn", ::SiteType"S=3/2") = [0, 0, 0, 1.0]
+
+ITensors.op(::OpName"S1z",::SiteType"S=3/2") =
+  [+1/2   0    0    0
+     0  +1/2   0    0 
+     0    0  -1/2   0
+     0    0    0  -1/2]
+     
+ITensors.op(::OpName"S2z",::SiteType"S=3/2") =
+  [+1/2   0    0    0
+   0  -1/2   0    0 
+   0    0  +1/2   0
+   0    0    0  -1/2]
+
+ITensors.op(::OpName"S1+",::SiteType"S=3/2") =
+  [0   0  1  0
+   0   0  0  1
+   0   0  0  0
+   0   0  0  0] 
+
+ITensors.op(::OpName"S2+",::SiteType"S=3/2") =
+  [0   1  0  0
+   0   0  0  0
+   0   0  0  1
+   0   0  0  0] 
+
+ITensors.op(::OpName"S1-",::SiteType"S=3/2") =
+  [0   0  0   0
+   0   0  0   0
+   1   0  0   0
+   0   1  0  0]
+
+ITensors.op(::OpName"S2-",::SiteType"S=3/2") =
+  [0   0  0   0
+   1   0  0   0
+   0   0  0   0
+   0   0  1  0]
+ITensors.op(::OpName"rung",::SiteType"S=3/2") =
+   [1/4   0     0     0
+    0    -1/4   1/2   0
+    0     1/2   -1/4   0
+    0     0     0    1/4]
+ITensors.op(::OpName"Id",::SiteType"S=3/2") =
+  [1   0  0   0
+   0   1  0   0
+   0   0  1   0
+   0   0  0  1]
+
+function ITensors.op(::OpName"U(t)", ::SiteType"S=3/2", s1::Index, s2::Index; t, J2)
+  h1 =
+    1 / 2 * op("S1+", s1) * op("S1-", s2) +
+    1 / 2 * op("S1-", s1) * op("S1+", s2) +
+    op("S1z", s1) * op("S1z", s2)
+  h2 =
+    1 / 2 * op("S2+", s1) * op("S2-", s2) +
+    1 / 2 * op("S2-", s1) * op("S2+", s2) +
+    op("S2z", s1) * op("S2z", s2)
+  rung = op("rung", s1) * op("Id", s2)
   
-  return exp(-im * t * h)
+  return exp(-im * t * ((h1 + h2) + J2 * rung))
 end
 
 # Update block only contracting three-site blocks at a time
@@ -208,7 +280,7 @@ function fourth_order_trotter_sweep(ψ, sites, Λs, W1s, W2s, cut, m)
   trotter_sweep(ψ, sites, Λs, W1s[1], W2s[1], cut, m, true)
 end
 
-function create_gate_list(sites, δt)
+function create_gate_list(sites, δt, J2)
   a1 = 0.095848502741203681182
   a2 = -0.078111158921637922695
   a3 = 0.5 - (a1 + a2)
@@ -219,18 +291,18 @@ function create_gate_list(sites, δt)
   W1s = []
   W2s = []
 
-  push!(W1s, op("U(t)", sites[1], sites[3], t = a1*δt))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -a1*δt))
-  push!(W1s, op("U(t)", sites[1], sites[3], t = b1*δt))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -b1*δt))
-  push!(W1s, op("U(t)", sites[1], sites[3], t = a2*δt))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -a2*δt))
-  push!(W1s, op("U(t)", sites[1], sites[3], t = b2*δt))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -b2*δt))
-  push!(W1s, op("U(t)", sites[1], sites[3], t = a3*δt))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -a3*δt))
-  push!(W1s, op("U(t)", sites[1], sites[3], t = b3*δt))
-  push!(W2s, op("U(t)", sites[2], sites[4], t = -b3*δt))
+  push!(W1s, op("U(t)", sites[1], sites[3], t = a1*δt, J2=J2))
+  push!(W2s, op("U(t)", sites[2], sites[4], t = -a1*δt, J2=J2))
+  push!(W1s, op("U(t)", sites[1], sites[3], t = b1*δt, J2=J2))
+  push!(W2s, op("U(t)", sites[2], sites[4], t = -b1*δt, J2=J2))
+  push!(W1s, op("U(t)", sites[1], sites[3], t = a2*δt, J2=J2))
+  push!(W2s, op("U(t)", sites[2], sites[4], t = -a2*δt, J2=J2))
+  push!(W1s, op("U(t)", sites[1], sites[3], t = b2*δt, J2=J2))
+  push!(W2s, op("U(t)", sites[2], sites[4], t = -b2*δt, J2=J2))
+  push!(W1s, op("U(t)", sites[1], sites[3], t = a3*δt, J2=J2))
+  push!(W2s, op("U(t)", sites[2], sites[4], t = -a3*δt, J2=J2))
+  push!(W1s, op("U(t)", sites[1], sites[3], t = b3*δt, J2=J2))
+  push!(W2s, op("U(t)", sites[2], sites[4], t = -b3*δt, J2=J2))
 
   return W1s, W2s
 end
@@ -240,11 +312,13 @@ function H_dw(L)
   os = OpSum()
 
   for j in 1:2:(L - 1)
-    os += 1, "Sz", j
+    os += 1, "S1z", j
+    os += 1, "S2z", j
   end
 
   for j in (L+1):2:(2*L - 1)
-    os -= 1, "Sz", j
+    os -= 1, "S1z", j
+    os -= 1, "S2z", j
   end
   
   return os
@@ -255,12 +329,13 @@ function main(params::SimulationParameters)
 
   c = div(params.L,2) + 1 # center site
 
-  filename = "/pscratch/sd/k/kwang98/KPZ/production/chain_tebd_L$(params.L)_chi$(params.maxdim)_mu$(params.μ)_1e12.h5"
+  filename = "/pscratch/sd/k/kwang98/KPZ/production/tebd_coarsegrained_L$(params.L)_chi$(params.maxdim)_Jprime$(params.J2)_mu$(params.μ).h5"
 
   if (isfile(filename))
     F = h5open(filename,"r")
     times = read(F, "times")
-    Zs = read(F, "Zs")
+    Z1s = read(F, "Z1s")
+    Z2s = read(F, "Z2s")
     Ss = read(F, "Ss")
     ψ = read(F, "psi", MPS)
     ψ_norms = read(F, "psi_norms")
@@ -270,10 +345,10 @@ function main(params::SimulationParameters)
     sites = siteinds(ψ)
     orthogonalize!(ψ, 1)
     Λs = find_lambdas(ψ)
-    W1s, W2s = create_gate_list(sites, params.δt)
+    W1s, W2s = create_gate_list(sites, params.δt, params.J2)
   else
-    sites = siteinds("S=1/2", 2 * params.L; conserve_qns=true)
-    W1s, W2s = create_gate_list(sites, params.δt)
+    sites = siteinds("S=3/2", 2 * params.L; conserve_qns=true)
+    W1s, W2s = create_gate_list(sites, params.δt, params.J2)
   
     # Initial state is infinite-temperature mixed state, odd = physical, even = ancilla
     ψ = inf_temp_mps(sites)
@@ -294,7 +369,8 @@ function main(params::SimulationParameters)
 
     times = Float64[]
     ψ_norms = Float64[]
-    Zs = []
+    Z1s = []
+    Z2s = []
     Ss = []
     start_time = params.δt
   end
@@ -308,7 +384,8 @@ function main(params::SimulationParameters)
     @time fourth_order_trotter_sweep(ψ, sites, Λs, W1s, W2s, params.cutoff, params.maxdim)
     GC.gc()
 
-    Z = expect(ψ, "Sz"; sites=1:2:(2*params.L-1))
+    Z1 = expect(ψ, "S1z"; sites=1:2:(2*params.L-1))
+    Z2 = expect(ψ, "S2z"; sites=1:2:(2*params.L-1))
     S = entropy_von_neumann(ITensors.cpu(ψ), 2*params.L) # Von neumann entropy at half-cut between ancilla and physical (initially unentangled)
 
     println("Time = $t")
@@ -316,15 +393,17 @@ function main(params::SimulationParameters)
     flush(stdout)
     push!(times, t)
     push!(ψ_norms, norm(ψ))
-    t == params.δt ? Zs = Z : Zs = hcat(Zs, Z)
+    t == params.δt ? Z1s = Z1 : Z1s = hcat(Z1s, Z1)
+    t == params.δt ? Z2s = Z2 : Z2s = hcat(Z2s, Z2)
     t == params.δt ? Ss = S : Ss = hcat(Ss, S)
 
     # Writing to data file
     F = h5open(filename,"w")
     F["times"] = times
-    F["Zs"] = Zs
+    F["Z1s"] = Z1s
+    F["Z2s"] = Z2s
     F["Ss"] = Ss
-    F["corrs"] = (Zs[c-1,:] .- Zs[c,:]) ./ (2 * params.μ)
+    F["corrs"] = (Z1s[c-1,:] .- Z1s[c,:]) ./ (2 * params.μ)
     F["psi"] = ITensors.cpu(ψ)
     F["psi_norms"] = ψ_norms
     close(F)
@@ -342,8 +421,9 @@ params = SimulationParameters(
     parse(Int64, ARGS[2]),    # maxdim
     1e-12,                     # cutoff
     0.1,  # δt
-    20.0,                    # ttotal (or parse from ARGS if it's an input)
-    parse(Float64, ARGS[3])   # μ
+    100.0,                    # ttotal (or parse from ARGS if it's an input)
+    parse(Float64, ARGS[3]),   # J2
+    parse(Float64, ARGS[4])   # μ
 )
 
 main(params)

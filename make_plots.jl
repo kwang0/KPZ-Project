@@ -7,7 +7,7 @@ colormap = plt.get_cmap("inferno")
 interval_low = 0.0
 interval_high = 0.9
 dpi = 1200
-format = "png"
+format = "pdf"
 
 ############# SU(2) point #############
 
@@ -22,7 +22,7 @@ ax[1].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_lo
 ax[2].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts)+1)]))
 
 # plot_hdf(ax, "data_plots/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0)
-plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0, T_cutoff=100.0)
+plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0, T_cutoff=80.0)
 # plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_L64_chi1024_beta0.0_dt_ramped0.1_20.0_0.5_Jprime0.0_U0.0_Uprime0.0_mu0.001_1e12cutoff.h5", type="hdf", graph="both_transfer", t_scale=1.0)
 # plot_hdf(ax, "data_plots/production/chain_L128_chi512.h5", type="hdf", graph="both_transfer", t_scale=1.0, dw="su(3)")
 for J2 in perts
@@ -43,11 +43,12 @@ ax[2].set_ylabel(latexstring("z"))
 perts = 0.4:0.4:2.0
 # fig,axs = plt.subplots(2,sharex=true)
 ax = axs[:,2]
-ax[1].set_xlim(8e-1, 100)
+ax[1].set_xlim(8e-1, 200)
 ax[1].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts)+1)]))
 ax[2].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts)+1)]))
 
-plot_hdf(ax, "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0)
+# plot_hdf(ax, "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0)
+plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0, T_cutoff=80.0)
 for U in perts
     # file = "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime$(U)_mu0.001.h5"
     file = "data_plots/production/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime$(U)_mu0.001.h5"
@@ -62,14 +63,15 @@ ax[2].set_xlabel(latexstring("t \\cdot U'^2"))
 # plt.savefig("plots/su2_Uprime.$(format)", dpi=dpi)
 
 # Sym-preserving Biquad. perturbations
-perts = 0.0:0.4:2.0
+perts = 0.4:0.4:2.0
 # fig,axs = plt.subplots(2,sharex=true)
 ax = axs[:,3]
 ax[1].set_xlim(6e-1, 80)
-ax[1].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts))]))
-ax[2].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts))]))
+ax[1].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts)+1)]))
+ax[2].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts)+1)]))
 
 # plot_hdf(ax, "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0)
+plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0, T_cutoff=60.0)
 for U in perts
     file = "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U$(U)_mu0.001.h5"
     # file = "data_plots/production/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U$(U)_Uprime0.0_mu0.001.h5"

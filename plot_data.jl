@@ -197,7 +197,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         alphas = []
         errors = []
         ts = []
-        t = 1.0
+        t = 2.5
         scale = 1.25
         while (t + window_size < times[end])
             window_min = t
@@ -228,7 +228,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         ax.set_yticks([1,1.5,2],["1","1.5","2"])
         ax.set_ylim(1,2)
         ax.plot(ts .* t_scale, alphas, label=f, marker=".", linestyle="--")
-        ax.legend()
+        # ax.legend()
     elseif graph == "entropy"
         F = h5open(f,"r")
         Ss = real(read(F, "Ss"))

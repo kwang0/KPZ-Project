@@ -16,7 +16,7 @@ using Glob
 # end
 
 # Plot my own data
-function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0, label="default", dw="Z", ncol=1, window_size = 20, T_cutoff=Inf64, normalize=false)
+function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite", t_scale=1.0, s_scale = 1.0, label="default", dw="Z", ncol=1, window_size = 20, T_cutoff=Inf64, normalize=false)
     if label == "default"
         label = f
     end
@@ -25,8 +25,8 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         plot_hdf(ax[2], f, type=type, graph = "exponent", label = label)
         return
     elseif graph == "both_transfer"
-        plot_hdf(ax[1], f, type=type, graph = "transfer", t_scale=1.0, label = label, dw = dw, ncol=ncol, window_size=window_size, T_cutoff=T_cutoff, normalize=normalize)
-        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale, label = label, dw = dw, ncol=ncol, window_size=window_size, T_cutoff=T_cutoff, normalize=normalize)
+        plot_hdf(ax[1], f, type=type, graph = "transfer", t_scale=1.0, s_scale=s_scale, label = label, dw = dw, ncol=ncol, window_size=window_size, T_cutoff=T_cutoff, normalize=normalize)
+        plot_hdf(ax[2], f, type=type, graph = "exponent_transfer", t_scale=t_scale, s_scale=s_scale, label = label, dw = dw, ncol=ncol, window_size=window_size, T_cutoff=T_cutoff, normalize=normalize)
         return
     end
 
@@ -160,7 +160,7 @@ function plot_hdf(ax, f::String; norm::Float64=1.0, type = "hdf", graph="twosite
         c = size(Qs,1)÷2
         transfer = sum(Qs[1:c,:],dims=1)
         transfer .= transfer[1] .- transfer
-        ax.loglog(times .* t_scale, transfer[:] .* (times .^ (-2/3)), label = label)
+        ax.loglog(times .* t_scale, s_scale .* transfer[:] .* (times .^ (-2/3)), label = label)
         # plt.plot(log.(times), diffusion, label=f)
         # ax.legend(ncol=ncol)
     elseif graph == "exponent_transfer"

@@ -22,9 +22,9 @@ ax[1].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_lo
 ax[2].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts)+1)]))
 
 # plot_hdf(ax, "data_plots/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0)
-plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0, T_cutoff=80.0)
+# plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=1.0, T_cutoff=80.0)
 # plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_L64_chi1024_beta0.0_dt_ramped0.1_20.0_0.5_Jprime0.0_U0.0_Uprime0.0_mu0.001_1e12cutoff.h5", type="hdf", graph="both_transfer", t_scale=1.0)
-# plot_hdf(ax, "data_plots/production/chain_L128_chi512.h5", type="hdf", graph="both_transfer", t_scale=1.0, dw="su(3)")
+plot_hdf(ax, "data_plots/production/chain_L400_chi400_mu0.0017_1e12.h5", type="hdf", graph="both_transfer", t_scale=0.0, s_scale=1.17, T_cutoff=100.0, dw="su(3)")
 for J2 in perts
     # file = "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime$(J2)_mu0.001.h5"
     # file = "data_plots/production/tdvp_coarsegrained_dw_gpu_L64_chi600_beta0.0_dt0.1_Jprime$(J2)_U0.0_Uprime0.0_mu0.001.h5"
@@ -48,7 +48,8 @@ ax[1].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_lo
 ax[2].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts)+1)]))
 
 # plot_hdf(ax, "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0)
-plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0, T_cutoff=80.0)
+# plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0, T_cutoff=80.0)
+plot_hdf(ax, "data_plots/production/chain_L400_chi400_mu0.0017_1e12.h5", type="hdf", graph="both_transfer", t_scale=0.0, s_scale=1.17, T_cutoff=100.0, dw="su(3)")
 for U in perts
     # file = "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime$(U)_mu0.001.h5"
     file = "data_plots/production/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime$(U)_mu0.001.h5"
@@ -71,7 +72,8 @@ ax[1].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_lo
 ax[2].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts)+1)]))
 
 # plot_hdf(ax, "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0)
-plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0, T_cutoff=60.0)
+# plot_hdf(ax, "data_plots/production/tdvp_coarsegrained_dw_gpu_L128_chi512_beta0.0_dt0.1_Jprime0.0_U0.0_Uprime0.0_mu0.001.h5", type="hdf", graph="both_transfer", t_scale=0.0, T_cutoff=60.0)
+plot_hdf(ax, "data_plots/production/chain_L400_chi400_mu0.0017_1e12.h5", type="hdf", graph="both_transfer", t_scale=0.0, s_scale=1.17, T_cutoff=70.0, dw="su(3)")
 for U in perts
     file = "data_plots/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U$(U)_mu0.001.h5"
     # file = "data_plots/production/tdvp_coarsegrained_dw_gpu_L64_chi512_beta0.0_dt0.1_Jprime0.0_U$(U)_Uprime0.0_mu0.001.h5"
@@ -107,7 +109,7 @@ perts = 0.0:0.1:0.5
 fig,axs = plt.subplots(2,3,sharey="row", gridspec_kw=Dict("height_ratios" => [3, 2]), layout="constrained")
 ax = axs[:,1]
 ax[1].set_xlim(2e-1, 80)
-ax[1].set_ylim(8e-4, 1.8e-3)
+ax[1].set_ylim(8e-4, 2e-3)
 ax[1].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts))]))
 ax[2].set_prop_cycle(plt.cycler(color=[colormap(k) for k in LinRange(interval_low,interval_high,length(perts))]))
 for J2 in perts
@@ -164,7 +166,7 @@ norm = plt.Normalize(vmin=0.0, vmax=0.5)
 sm = plt.cm.ScalarMappable(cmap=colormap, norm=norm)
 cbar = plt.colorbar(sm, ax=axs[1,1], pad=0.03, ticks=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
 cbar.ax.set_xlabel(latexstring("J'"))
-cbar = plt.colorbar(sm, ax=axs[1,2], pad=0.02, ticks=[0.0, 0.1, 0.2, 0.3, 0.4])
+cbar = plt.colorbar(sm, ax=axs[1,2], pad=0.02, ticks=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
 cbar.ax.set_xlabel(latexstring("U'"))
 cbar = plt.colorbar(sm, ax=axs[1,3], pad=0.0, ticks=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
 cbar.ax.set_xlabel(latexstring("\\delta U"))

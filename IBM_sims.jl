@@ -184,6 +184,7 @@ function main(; L=128, cutoff=1f-6, δt=0.1, ttotal=20, maxdim=32, offset=5, run
     #   ψ2 = expand(ψ2, H_real; alg="global_krylov", cutoff)
     # end
 
+    ψ = apply(gates, ψ; cutoff, maxdim)
     ψ2 = apply(gates, ψ2; cutoff, maxdim)
     GC.gc()
 
